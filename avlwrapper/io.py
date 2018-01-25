@@ -69,7 +69,7 @@ class Session(object):
         self.case_file = self.base_name + '.case'
         with open(os.path.join(self.temp_dir.name, self.case_file), 'w') as case_file:
             for idx, case in enumerate(self.cases):
-                case.number = idx
+                case.number = idx + 1 # Case numbers start at 1
                 case_file.write(case.create_input())
 
     def _get_default_run_keys(self):
@@ -94,15 +94,15 @@ class Session(object):
     def _read_results(self):
 
         results = dict()
-        for idx, _ in enumerate(self.cases):
-            case_id = idx + 1
+        for case in self.cases:
+            results[case.name] = dict()
             for output in self.config['output']:
                 ext = self.OUTPUTS[output]
                 file_name = '{base}-{case}.{out}'.format(out=ext,
                                                          base=self.base_name,
-                                                         case=case_id)
+                                                         case=case.number)
                 reader = OutputReader(file_path=os.path.join(self.temp_dir.name, file_name))
-                results[output] = reader.get_content()
+                results[case.name][output] = reader.get_content()
 
         return results
 
