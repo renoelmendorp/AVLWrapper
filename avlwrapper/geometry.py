@@ -267,7 +267,7 @@ class Control(Input):
         self.hinge_vector = hinge_vector
 
     def create_input(self):
-        return "CONTROL\n#Name Gain XHinge Vector SgnDup\n{name} {gain} {hinge} {vec.x} {vec.y} {vec.z} {sgn}".format(
+        return "CONTROL\n#Name Gain XHinge Vector SgnDup\n{name} {gain} {hinge} {vec.x} {vec.y} {vec.z} {sgn}\n".format(
             name=self.name, gain=self.gain, hinge=self.x_hinge, vec=self.hinge_vector, sgn=self.duplicate_sign)
 
 
@@ -278,7 +278,7 @@ class Design(Input):
         self.bias = bias
 
     def create_input(self):
-        return "DESIGN\n#Name Weight\n{0} {0}".format(self.name, self.bias)
+        return "DESIGN\n#Name Weight\n{0} {0}\n".format(self.name, self.bias)
 
 
 class ProfileDrag(Input):
