@@ -55,8 +55,9 @@ if __name__ == '__main__':
 
     cruise_case = Case(name='Cruise', alpha=4.0)
 
-    cruise_trim_case = Case(name='Trimmed', alpha=4.0)
-    cruise_trim_case.parameters['elevator'] = Parameter(name='elevator', constraint='Cm', value=0.0)
+    cruise_trim_case = Case(name='Trimmed',
+                            alpha=4.0,
+                            elevator=Parameter(name='elevator', constraint='Cm', value=0.0))
 
     landing_case = Case(name='Landing', alpha=7.0, flap=15.0)
 

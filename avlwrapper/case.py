@@ -30,7 +30,9 @@ class Case(Input):
 
         self.controls = []
         for key, value in kwargs.items():
-            if key in self.CASE_PARAMETERS.keys():
+            if isinstance(value, Parameter):
+                self.parameters[key] = value
+            elif key in self.CASE_PARAMETERS.keys():
                 param_str = self.CASE_PARAMETERS[key]
                 self.parameters[param_str].value = value
             else:
