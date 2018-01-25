@@ -32,24 +32,27 @@ class Case(Input):
         for key, value in kwargs.items():
             if key in self.CASE_PARAMETERS.keys():
                 param_str = self.CASE_PARAMETERS[key]
+                self.parameters[param_str].value = value
             else:
                 param_str = key
                 self.controls.append(key)
+                self.parameters[param_str] = Parameter(name=param_str, value=value)
 
-            self.parameters[param_str] = value
+
+
 
     def _set_default_parameters(self):
-        return [Parameter(name=name, constraint=name, value=0.0) for _, name in self.CASE_PARAMETERS.items()]
+        return {name: Parameter(name=name, constraint=name, value=0.0) for _, name in self.CASE_PARAMETERS.items()}
 
     def _set_default_states(self):
-        return [State(name=key, value=value[0], unit=value[1]) for key, value in self.CASE_STATES.items()]
+        return {key: State(name=key, value=value[0], unit=value[1]) for key, value in self.CASE_STATES.items()}
 
     def _check(self):
-        for param in self.parameters:
+        for param in self.parameters.values():
             if param.constraint not in self.VALID_CONSTRAINTS and param.constraint not in self.controls:
                 raise InputError("Invalid constraint on parameter: {0}.".format(param.name))
 
-        for state in self.states:
+        for state in self.states.values():
             if state.name not in self.CASE_STATES.keys():
                 raise InputError("Invalid state variable: {0}".format(state.name))
 
@@ -58,12 +61,12 @@ class Case(Input):
 
         case_str = " " + "-"*45 + "\n Run case {0:<2}:  {1}\n\n".format(self.number, self.name)
 
-        for param in self.parameters:
+        for param in self.parameters.values():
             case_str += param.create_input()
 
         case_str += "\n"
 
-        for state in self.states:
+        for state in self.states.values():
             case_str += state.create_input()
 
         return case_str
