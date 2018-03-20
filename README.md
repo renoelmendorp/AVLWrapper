@@ -1,6 +1,7 @@
 # AVLWrapper
 Python interface for MIT AVL (Athena Vortex Lattice)
 
+## Description
 Currently implemented:
 * Geometry definition
 * Case definition
@@ -12,6 +13,8 @@ Not implemented (yet):
 * Eigen-mode analyses
 * Time-domain analyses
 
-AVL should be installed and the executable path should be set in `avlwrapper/config.cfg`.
+## Requirements
+* Developed and tested with Python 3.6
+* AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed and the executable path should be set in `avlwrapper/config.cfg`.
 
 For an usage example, see `example.py`
