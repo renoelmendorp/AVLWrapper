@@ -192,6 +192,10 @@ class Session(object):
             avl_file.write(self.geometry.create_input())
 
     def _write_cases(self):
+        # AVL is limited to 25 cases
+        if len(self.cases) > 25:
+            raise InputError('Number of cases is larger than the supported maximum of 25.')
+
         self.case_file = self.base_name + '.case'
         with open(os.path.join(self.temp_dir.name, self.case_file), 'w') as case_file:
             for idx, case in enumerate(self.cases):
