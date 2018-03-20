@@ -1,4 +1,31 @@
-from avlwrapper.general import Input, InputError, Symmetry, Spacing, Vector
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+""" AVL Geometry classes
+"""
+from collections import namedtuple
+from enum import Enum
+
+from .core import InputError, Input
+
+__author__ = "Reno Elmendorp"
+__status__ = "Development"
+
+Point = namedtuple('Point', 'x y z')
+Vector = namedtuple('Vector', 'x y z')
+
+
+class Spacing(Enum):
+    sine = 2
+    cosine = 1
+    equal = 0
+    neg_sine = -2
+
+
+class Symmetry(Enum):
+    none = 0
+    symmetric = 1
+    anti_symmetric = -1
 
 
 class Geometry(Input):
@@ -40,19 +67,6 @@ class Geometry(Input):
                 geom_str += body.create_input()
 
         return geom_str
-
-
-class FileWrapper(Input):
-    """Wraps an existing input file to be used with the wrapper"""
-    def __init__(self, file):
-        self.file = file
-        with open(self.file, 'r') as in_file:
-            self.name = in_file.readline().rstrip()
-
-    def create_input(self):
-        with open(self.file, 'r') as in_file:
-            lines = in_file.readlines()
-        return "".join(lines)
 
 
 class Surface(Input):
@@ -294,3 +308,16 @@ class ProfileDrag(Input):
         for cl, cd in zip(self.cl_data, self.cd_data):
             data_str += "{0} {1} ".format(cl, cd)
         return data_str + "\n"
+
+
+class FileWrapper(Input):
+    """Wraps an existing input file to be used with the wrapper"""
+    def __init__(self, file):
+        self.file = file
+        with open(self.file, 'r') as in_file:
+            self.name = in_file.readline().rstrip()
+
+    def create_input(self):
+        with open(self.file, 'r') as in_file:
+            lines = in_file.readlines()
+        return "".join(lines)

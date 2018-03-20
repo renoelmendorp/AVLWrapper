@@ -1,25 +1,27 @@
-from avlwrapper.geometry import Geometry, Surface, Section, NacaAirfoil, Spacing, Control
-from avlwrapper.general import Point
-from avlwrapper.case import Case, Parameter
-from avlwrapper.io import Session
 import json
+from avlwrapper import Geometry, Surface, Section, NacaAirfoil, Control, Point, Spacing, Session, Case, Parameter
 
 if __name__ == '__main__':
 
+    # control surface definition of a flap (to be used in the wing)
     flap_control = Control(name="flap",
                            gain=1.0,
                            x_hinge=0.8,
                            duplicate_sign=1.0)
 
+    # wing root section with a flap control and NACA airfoil
     root_section = Section(leading_edge_point=Point(0, 0, 0),
                            chord=1.0,
                            controls=[flap_control],
                            airfoil=NacaAirfoil(naca='2414'))
+
+    # wing tip
     tip_section = Section(leading_edge_point=Point(0.6, 2.0, 0),
                           chord=0.4,
                           controls=[flap_control],
                           airfoil=NacaAirfoil(naca='2410'))
 
+    # wing surface defined by root and tip sections
     wing_surface = Surface(name="Wing",
                            n_chordwise=8,
                            chord_spacing=Spacing.cosine,
@@ -28,11 +30,13 @@ if __name__ == '__main__':
                            y_duplicate=0.0,
                            sections=[root_section, tip_section])
 
+    # elevator control for the tail surface
     elevator = Control(name="elevator",
                        gain=1.0,
                        x_hinge=0.6,
                        duplicate_sign=1.0)
 
+    # tail surface definition, sections are defined in-line
     tail_surface = Surface(name="Horizontal Stabiliser",
                            n_chordwise=8,
                            chord_spacing=Spacing.cosine,
@@ -46,6 +50,7 @@ if __name__ == '__main__':
                                              chord=0.25,
                                              controls=[elevator])])
 
+    # geometry object (which corresponds to an AVL input-file)
     geometry = Geometry(name="Test wing",
                         reference_area=4.8,
                         reference_chord=0.74,
@@ -53,16 +58,21 @@ if __name__ == '__main__':
                         reference_point=Point(0.21, 0, 0.15),
                         surfaces=[wing_surface, tail_surface])
 
-    cruise_case = Case(name='Cruise', alpha=4.0)
+    # Cases (multiple cases can be defined)
+    cruise_case = Case(name='Cruise', alpha=4.0)  # Case defined by one angle-of-attack
 
+    # More elaborate case, angle-of-attack of 4deg, elevator parameter which sets Cm (pitching moment) to 0.0
     cruise_trim_case = Case(name='Trimmed',
                             alpha=4.0,
                             elevator=Parameter(name='elevator', constraint='Cm', value=0.0))
 
+    # Landing case; flaps down by 15deg
     landing_case = Case(name='Landing', alpha=7.0, flap=15.0)
 
+    # create session with the geometry object and the cases
     session = Session(geometry=geometry, cases=[cruise_case, cruise_trim_case, landing_case])
-    results = session.get_results()
 
+    # get results and write the resulting dict to a JSON-file
+    results = session.get_results()
     with open('out.json', 'w') as f:
         f.write(json.dumps(results))
