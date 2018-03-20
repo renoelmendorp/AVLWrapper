@@ -176,7 +176,7 @@ class Session(object):
                 raise FileNotFoundError(error_msg)
         else:
             if not any(os.access(os.path.join(path, binary), os.X_OK)
-                       for path in os.environ['PATH'.split(os.pathsep)]):
+                       for path in os.environ['PATH'].split(os.pathsep)):
                 raise FileNotFoundError(error_msg)
         return True
 
