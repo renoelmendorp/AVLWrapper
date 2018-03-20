@@ -160,6 +160,12 @@ class Session(object):
         # check if avl binary exists
         self._check_bin(settings['avl_bin'])
 
+        # show stdout of avl
+        if config['environment']['PrintOutput'] == 'yes':
+            settings['show_stdout'] = True
+        else:
+            settings['show_stdout'] = False
+
         # Output files
         settings['output'] = []
         for output in self.OUTPUTS.keys():
@@ -249,7 +255,10 @@ class Session(object):
             else:
                 run_keys = self.run_keys
 
-            avl_proc = subprocess.Popen([self.config['avl_bin']], stdin=subprocess.PIPE, cwd=self.temp_dir.name)
+            avl_proc = subprocess.Popen(args=[self.config['avl_bin']],
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.DEVNULL if not self.config['show_stdout'] else None,
+                                        cwd=self.temp_dir.name)
             avl_proc.communicate(input=run_keys.encode())
             self._calculated = True
 
