@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import json
 from avlwrapper import Geometry, Surface, Section, NacaAirfoil, Control, Point, Spacing, Session, Case, Parameter
 
