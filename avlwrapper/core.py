@@ -14,6 +14,7 @@ __status__ = "Development"
 
 
 __MODULE_DIR__ = os.path.dirname(__file__)
+CONFIG_FILE = 'config.cfg'
 
 
 class Input(object):
@@ -22,12 +23,13 @@ class Input(object):
 
 
 class Parameter(Input):
-
+    """Parameter used in the case definition"""
     def __init__(self, name, value, constraint=None):
 
         self.name = name
         self.value = value
 
+        # by default, a parameter is not constraint, but set to its own value
         if constraint is None:
             self.constraint = name
         else:
@@ -38,7 +40,7 @@ class Parameter(Input):
 
 
 class State(Input):
-
+    """State used in the case definition"""
     def __init__(self, name, value, unit=''):
         self.name = name
         self.value = value
@@ -49,7 +51,7 @@ class State(Input):
 
 
 class Case(Input):
-
+    """AVL analysis case containing parameters and states"""
     CASE_PARAMETERS = {'alpha': 'alpha', 'beta': 'beta', 'roll_rate': 'pb/2V', 'pitch_rate': 'qc/2V',
                        'yaw_rate': 'rb/2V'}
 
@@ -77,17 +79,21 @@ class Case(Input):
 
         self.controls = []
         for key, value in kwargs.items():
+            # if a parameter object is given, add to the dict
             if isinstance(value, Parameter):
                 self.parameters[key] = value
+            # if the key is an existing case parameter, set the value
             elif key in self.CASE_PARAMETERS.keys():
                 param_str = self.CASE_PARAMETERS[key]
                 self.parameters[param_str].value = value
+            # if an unknown key-value pair is given, assume its a control and create a parameter
             else:
                 param_str = key
                 self.controls.append(key)
                 self.parameters[param_str] = Parameter(name=param_str, value=value)
 
     def _set_default_parameters(self):
+        # parameters default to 0.0
         return {name: Parameter(name=name, constraint=name, value=0.0) for _, name in self.CASE_PARAMETERS.items()}
 
     def _set_default_states(self):
@@ -119,18 +125,18 @@ class Case(Input):
 
 
 class Session(object):
-
-    CONFIG_FILE = os.path.join(__MODULE_DIR__, 'config.cfg')
+    """Main class which handles AVL runs and input/output"""
     OUTPUTS = {'Totals': 'ft', 'SurfaceForces': 'fn', 'StripForces': 'fs', 'ElementForces': 'fe',
                'StabilityDerivatives': 'st', 'BodyAxisDerivatives': 'sb', 'HingeMoments': 'hm'}
 
     def __init__(self, geometry, cases=None, run_keys=None):
         self._temp_dir = None
 
+        # either run cases or an AVL command listing should be given
         if (cases is None) and (run_keys is None):
             raise InputError("Either cases or run keys should be provided.")
 
-        self.config = self._read_config(self.CONFIG_FILE)
+        self.config = self._read_config(os.path.join(__MODULE_DIR__, CONFIG_FILE))
 
         self.geometry = geometry
         self.base_name = geometry.name
@@ -176,15 +182,26 @@ class Session(object):
 
     @staticmethod
     def _check_bin(binary):
-        error_msg = 'AVL not found or not executable, check {}config.cfg'.format(__MODULE_DIR__ + os.sep)
+        bin_found = False
+        # if absolute path is given, check if exits and executable
         if os.path.isabs(binary):
-            if not os.path.exists(binary) or not os.access(binary, os.X_OK):
-                raise FileNotFoundError(error_msg)
+            if os.path.exists(binary) and os.access(binary, os.X_OK):
+                bin_found = True
         else:
-            if not any(os.access(os.path.join(path, binary), os.X_OK)
-                       for path in os.environ['PATH'].split(os.pathsep)):
-                raise FileNotFoundError(error_msg)
-        return True
+            # check module dir
+            local_bin = os.path.join(__MODULE_DIR__, binary)
+            if os.path.exists(local_bin) and os.access(local_bin, os.X_OK):
+                bin_found = True
+            # check system path
+            else:
+                for path in os.environ['PATH'].split(os.pathsep):
+                    bin_path = os.path.join(path, binary)
+                    if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
+                        bin_found = True
+        if bin_found:
+            return True
+        else:
+            raise FileNotFoundError('AVL not found or not executable, check {}'.format(__MODULE_DIR__ + os.sep + CONFIG_FILE))
 
     def _create_temp_dir(self):
         self._temp_dir = tempfile.TemporaryDirectory(prefix='avl_')
@@ -277,7 +294,7 @@ class Session(object):
 
 
 class OutputReader(object):
-
+    """Reads AVL output files. Filetype is determined based on file extension"""
     def __init__(self, file_path):
 
         self.path = file_path
@@ -287,21 +304,23 @@ class OutputReader(object):
         with open(self.path, 'r') as file:
             content = file.readlines()
         if self.extension == '.ft':
-            return self._read_totals(content)
+            result = self._read_totals(content)
         elif self.extension == '.fn':
-            return self._read_surface_forces(content)
+            result = self._read_surface_forces(content)
         elif self.extension == '.fs':
-            return self._read_strip_forces(content)
+            result = self._read_strip_forces(content)
         elif self.extension == '.fe':
-            return self._read_element_forces(content)
+            result = self._read_element_forces(content)
         elif self.extension == '.st':
-            return self._read_stability_derivatives(content)
+            result = self._read_stability_derivatives(content)
         elif self.extension == '.sb':
-            return self._read_body_derivatives(content)
+            result = self._read_body_derivatives(content)
         elif self.extension == '.hm':
-            return self._read_hinge_moments(content)
+            result = self._read_hinge_moments(content)
         else:
             print("Unknown output file: {0}".format(self.path))
+            result = []
+        return result
 
     @staticmethod
     def _get_vars(content):
@@ -339,7 +358,7 @@ class OutputReader(object):
                 break
 
         if start_line is None or end_line is None:
-            ParseError("Table not found in file {0}".format(self.path))
+            raise ParseError("Table not found in file {0}".format(self.path))
 
         table_content = content[start_line:end_line]
         header = self._extract_header(table_content)
@@ -355,7 +374,7 @@ class OutputReader(object):
             name = re.findall('(\D+)(?=\n)', line)[0].strip()
 
             if len(line_data) != len(header):
-                ParseError("Incorrect table format in file {0}".format(self.path))
+                raise ParseError("Incorrect table format in file {0}".format(self.path))
 
             # Create results dictionary
             # Combine surfaces labeled with (YDUP)
@@ -393,7 +412,7 @@ class OutputReader(object):
 
                 # Check if surface name is defined
                 if surface_name is None:
-                    ParseError("Unexpected file structure {0}".format(self.path))
+                    raise ParseError("Unexpected file structure {0}".format(self.path))
 
                 table_content[surface_name] = content[start_line:end_line]
 
@@ -454,10 +473,10 @@ class OutputReader(object):
 
                 # Check if surface name is defined
                 if surface_name is None:
-                    ParseError("Unexpected file structure {0}".format(self.path))
+                    raise ParseError("Unexpected file structure {0}".format(self.path))
                 # Check if strip number is defined
                 if strip_nr is None:
-                    ParseError("Unexpected file structure {0}".format(self.path))
+                    raise ParseError("Unexpected file structure {0}".format(self.path))
 
                 data_tables[surface_name][strip_nr] = content[start_line:end_line]
 
