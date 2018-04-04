@@ -161,10 +161,7 @@ class Session(object):
         config.read(file)
 
         settings = dict()
-        settings['avl_bin'] = config['environment']['Executable']
-
-        # check if avl binary exists
-        self._check_bin(settings['avl_bin'])
+        settings['avl_bin'] = self._check_bin(config['environment']['Executable'])
 
         # show stdout of avl
         if config['environment']['PrintOutput'] == 'yes':
@@ -181,25 +178,25 @@ class Session(object):
         return settings
 
     @staticmethod
-    def _check_bin(binary):
-        bin_found = False
+    def _check_bin(bin_path):
+        avl_path = None
         # if absolute path is given, check if exits and executable
-        if os.path.isabs(binary):
-            if os.path.exists(binary) and os.access(binary, os.X_OK):
-                bin_found = True
+        if os.path.isabs(bin_path):
+            if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
+                avl_path = bin_path
         else:
             # check module dir
-            local_bin = os.path.join(__MODULE_DIR__, binary)
+            local_bin = os.path.join(__MODULE_DIR__, bin_path)
             if os.path.exists(local_bin) and os.access(local_bin, os.X_OK):
-                bin_found = True
+                avl_path = local_bin
             # check system path
-            else:
+            if avl_path is None:
                 for path in os.environ['PATH'].split(os.pathsep):
-                    bin_path = os.path.join(path, binary)
-                    if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
-                        bin_found = True
-        if bin_found:
-            return True
+                    candidate_path = os.path.join(path, bin_path)
+                    if os.path.exists(candidate_path) and os.access(candidate_path, os.X_OK):
+                        avl_path = candidate_path
+        if avl_path is not None:
+            return avl_path
         else:
             raise FileNotFoundError('AVL not found or not executable, check {}'.format(__MODULE_DIR__ + os.sep + CONFIG_FILE))
 
