@@ -14,7 +14,7 @@ Not implemented (yet):
 * Time-domain analyses
 
 ## Requirements
-* Developed and tested with Python 3.6
+* Developed and tested with Python 3.6, compatible with Python 2.7
 * AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed and the executable path should be set in `avlwrapper/config.cfg`.
 
 For an usage example, see `example.py`
