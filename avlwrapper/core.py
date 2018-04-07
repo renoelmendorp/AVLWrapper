@@ -447,7 +447,7 @@ class OutputReader(object):
 
         strip_results = dict()
 
-        for name in table_content.keys():
+        for name in sorted(table_content.keys()): # sort so (YDUP) surfaces are always behind the main surface
             header = self._extract_header(table_content[name])
 
             # check for YDUP
@@ -510,7 +510,7 @@ class OutputReader(object):
                 start_line, end_line, strip_nr = None, None, None
 
         element_results = dict()
-        for name in data_tables.keys():
+        for name in sorted(data_tables.keys()): # sort so (YDUP) surfaces are always behind the main surface
 
             # check for YDUP
             if '(YDUP)' in name:
