@@ -4,7 +4,11 @@
 """ AVL Geometry classes
 """
 from collections import namedtuple
-from enum import Enum
+
+try:
+    from enum import Enum  # On Python 2, requires enum34 pip package
+except ImportError:
+    raise ImportError('Please install the enum34 pip package.')
 
 from .core import InputError, Input
 
@@ -237,23 +241,23 @@ class Airfoil(Input):
 class NacaAirfoil(Airfoil):
 
     def __init__(self, naca, x1=None, x2=None):
-        super().__init__('naca', x1, x2)
+        super(NacaAirfoil, self).__init__('naca', x1, x2)
         self.naca = naca
 
     def create_input(self):
-        header = super().create_input()
+        header = super(NacaAirfoil, self).create_input()
         return header + "{0}\n".format(self.naca)
 
 
 class DataAirfoil(Airfoil):
 
     def __init__(self, x_data, z_data, x1=None, x2=None):
-        super().__init__('airfoil', x1, x2)
+        super(DataAirfoil, self).__init__('airfoil', x1, x2)
         self.x_data = x_data
         self.z_data = z_data
 
     def create_input(self):
-        header = super().create_input()
+        header = super(DataAirfoil, self).create_input()
         data = ""
         for x, z in zip(self.x_data, self.z_data):
             data += "{0} {0}\n".format(x, z)
@@ -263,11 +267,11 @@ class DataAirfoil(Airfoil):
 class FileAirfoil(Airfoil):
 
     def __init__(self, file, x1=None, x2=None):
-        super().__init__('afile', x1, x2)
+        super(FileAirfoil, self).__init__('afile', x1, x2)
         self.file_name = file
 
     def create_input(self):
-        header = super().create_input()
+        header = super(FileAirfoil, self).create_input()
         return header + "{0}\n".format(self.file_name)
 
 

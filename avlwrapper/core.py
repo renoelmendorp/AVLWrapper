@@ -3,11 +3,29 @@
 
 """ AVL Wrapper core classes
 """
-import configparser
 import os
 import re
 import subprocess
-import tempfile
+
+try:
+    from configparser import ConfigParser  # Python 3
+except ImportError:
+    from ConfigParser import ConfigParser  # Python 2
+
+import sys
+__IS_PYTHON_3__ = not sys.version_info[0] < 3
+
+if __IS_PYTHON_3__:
+    from tempfile import TemporaryDirectory
+else:
+    # simple class which provides TemporaryDirectory-esque functionality
+    import shutil
+    import tempfile
+    class TemporaryDirectory(object):
+        def __init__(self, suffix='', prefix='', dir=None):
+            self.name = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dir)
+        def cleanup(self):
+            shutil.rmtree(self.name)
 
 __author__ = "Reno Elmendorp"
 __status__ = "Development"
@@ -157,14 +175,25 @@ class Session(object):
         return self._temp_dir
 
     def _read_config(self, file):
-        config = configparser.ConfigParser()
-        config.read(file)
+        if __IS_PYTHON_3__:
+            config = ConfigParser()
+            config.read(file)
+        else:
+            # create a dict which contains the same data as the Python 3 version
+            # Note that the 2.x ConfigParser always returns lowercase keys and values
+            parser = ConfigParser()
+            with open(file) as c_file:
+                parser.readfp(c_file)
+            config = {}
+            for section in parser.sections():
+                config[section] = {key: value
+                                   for key, value in parser.items(section)}
 
         settings = dict()
-        settings['avl_bin'] = self._check_bin(config['environment']['Executable'])
+        settings['avl_bin'] = self._check_bin(config['environment']['executable'])
 
         # show stdout of avl
-        if config['environment']['PrintOutput'] == 'yes':
+        if config['environment']['printoutput'] == 'yes':
             settings['show_stdout'] = True
         else:
             settings['show_stdout'] = False
@@ -172,7 +201,7 @@ class Session(object):
         # Output files
         settings['output'] = []
         for output in self.OUTPUTS.keys():
-            if config['output'][output] == 'yes':
+            if config['output'][output.lower()] == 'yes':
                 settings['output'].append(output)
 
         return settings
@@ -201,7 +230,7 @@ class Session(object):
             raise FileNotFoundError('AVL not found or not executable, check {}'.format(__MODULE_DIR__ + os.sep + CONFIG_FILE))
 
     def _create_temp_dir(self):
-        self._temp_dir = tempfile.TemporaryDirectory(prefix='avl_')
+        self._temp_dir = TemporaryDirectory(prefix='avl_')
 
     def _clean_temp_dir(self):
         self.temp_dir.cleanup()
@@ -271,7 +300,7 @@ class Session(object):
 
             avl_proc = subprocess.Popen(args=[self.config['avl_bin']],
                                         stdin=subprocess.PIPE,
-                                        stdout=subprocess.DEVNULL if not self.config['show_stdout'] else None,
+                                        stdout=open(os.devnull, 'w') if not self.config['show_stdout'] else None,
                                         cwd=self.temp_dir.name)
             avl_proc.communicate(input=run_keys.encode())
             self._calculated = True
