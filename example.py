@@ -75,6 +75,7 @@ if __name__ == '__main__':
     session = Session(geometry=geometry, cases=[cruise_case, cruise_trim_case, landing_case])
 
     # get results and write the resulting dict to a JSON-file
+    session.show_geometry()
     results = session.get_results()
     with open('out.json', 'w') as f:
         f.write(json.dumps(results))

@@ -8,6 +8,11 @@ import re
 import subprocess
 
 try:
+    import tkinter as tk  # Python 3
+except ImportError:
+    import Tkinter as tk  # Python 2
+
+try:
     from configparser import ConfigParser  # Python 3
 except ImportError:
     from ConfigParser import ConfigParser  # Python 2
@@ -285,7 +290,7 @@ class Session(object):
 
         return results
 
-    def _run_avl(self):
+    def _run_analysis(self):
 
         if not self._calculated:
             self._write_geometry()
@@ -298,16 +303,21 @@ class Session(object):
             else:
                 run_keys = self.run_keys
 
-            avl_proc = subprocess.Popen(args=[self.config['avl_bin']],
-                                        stdin=subprocess.PIPE,
-                                        stdout=open(os.devnull, 'w') if not self.config['show_stdout'] else None,
-                                        cwd=self.temp_dir.name)
-            avl_proc.communicate(input=run_keys.encode())
+            process = self._get_avl_process()
+            process.communicate(input=run_keys.encode())
             self._calculated = True
+
+    def _get_avl_process(self):
+        return subprocess.Popen(args=[self.config['avl_bin']],
+                                    stdin=subprocess.PIPE,
+                                    stdout=open(os.devnull, 'w') if not self.config['show_stdout'] else None,
+                                    bufsize=0,  # Buffer size required for direct stdin/stdout access
+                                    cwd=self.temp_dir.name)
+
 
     def get_results(self):
         if self._results is None:
-            self._run_avl()
+            self._run_analysis()
             self._results = self._read_results()
 
         return self._results
@@ -317,6 +327,19 @@ class Session(object):
         self._temp_dir = None
         self._results = None
         self._calculated = False
+
+    def show_geometry(self):
+        self._write_geometry()
+        run = "load {0}\n".format(self.model_file)
+        run += "oper\ng\n"
+
+        process = self._get_avl_process()
+
+        tk_root = tk.Tk()
+        app = CloseWindow(on_open=lambda : process.stdin.write(run.encode()),
+                          on_close=lambda : process.stdin.write("\n\nquit\n".encode()),
+                          master=tk_root)
+        app.mainloop()
 
 
 class OutputReader(object):
@@ -579,6 +602,29 @@ class OutputReader(object):
             if match is not None:
                 results[match.group(1)] = float(match.group(2))
         return results
+
+
+class CloseWindow(tk.Frame):
+    def __init__(self, on_open=None, on_close=None, master=None):
+        if __IS_PYTHON_3__:
+            super().__init__(master)
+        else:
+            tk.Frame.__init__(self, master)  # On Python 2, tk.Frame is an old-style class
+        self.pack()
+        if on_open is not None:
+            on_open()
+        self._on_close = on_close
+        self.create_button()
+
+    def create_button(self):
+        # add quit method to button press
+        def on_close_wrapper():
+            if self._on_close is not None:
+                self._on_close()
+            self.quit()
+        self.close_button = tk.Button(self, text="Close",
+                                      command=on_close_wrapper)
+        self.close_button.pack()
 
 
 class InputError(Exception):
