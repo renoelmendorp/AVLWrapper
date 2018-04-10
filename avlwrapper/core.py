@@ -336,8 +336,8 @@ class Session(object):
         process = self._get_avl_process()
 
         tk_root = tk.Tk()
-        app = CloseWindow(on_open=lambda : process.stdin.write(run.encode()),
-                          on_close=lambda : process.stdin.write("\n\nquit\n".encode()),
+        app = CloseWindow(on_open=lambda: process.stdin.write(run.encode()),
+                          on_close=lambda: process.stdin.write("\n\nquit\n".encode()),
                           master=tk_root)
         app.mainloop()
 
@@ -470,7 +470,7 @@ class OutputReader(object):
 
         strip_results = dict()
 
-        for name in sorted(table_content.keys()): # sort so (YDUP) surfaces are always behind the main surface
+        for name in sorted(table_content.keys()):  # sort so (YDUP) surfaces are always behind the main surface
             header = self._extract_header(table_content[name])
 
             # check for YDUP
@@ -606,15 +606,12 @@ class OutputReader(object):
 
 class CloseWindow(tk.Frame):
     def __init__(self, on_open=None, on_close=None, master=None):
-        if __IS_PYTHON_3__:
-            super().__init__(master)
-        else:
-            tk.Frame.__init__(self, master)  # On Python 2, tk.Frame is an old-style class
+        tk.Frame.__init__(self, master)  # On Python 2, tk.Frame is an old-style class
+        master.call('wm', 'attributes', '.', '-topmost', '1')  # Make sure window is on top
         self.pack()
-        if on_open is not None:
-            on_open()
+        self._on_open = on_open
         self._on_close = on_close
-        self.create_button()
+        self.close_button = self.create_button()
 
     def create_button(self):
         # add quit method to button press
@@ -622,9 +619,15 @@ class CloseWindow(tk.Frame):
             if self._on_close is not None:
                 self._on_close()
             self.quit()
-        self.close_button = tk.Button(self, text="Close",
-                                      command=on_close_wrapper)
-        self.close_button.pack()
+        close_button = tk.Button(self, text="Close",
+                                 command=on_close_wrapper)
+        close_button.pack()
+        return close_button
+
+    def mainloop(self, n=0):
+        if self._on_open is not None:
+            self._on_open()
+        tk.Frame.mainloop(self, n)
 
 
 class InputError(Exception):
