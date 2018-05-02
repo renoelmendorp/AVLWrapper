@@ -5,6 +5,7 @@
 """
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -29,7 +30,6 @@ if __IS_PYTHON_3__:
     from tempfile import TemporaryDirectory
 else:
     # simple class which provides TemporaryDirectory-esque functionality
-    import shutil
     import tempfile
     class TemporaryDirectory(object):
         def __init__(self, suffix='', prefix='', dir=None):
@@ -250,6 +250,12 @@ class Session(object):
         with open(os.path.join(self.temp_dir.name, self.model_file), 'w') as avl_file:
             avl_file.write(self.geometry.create_input())
 
+    def _copy_airfoils(self):
+        airfoil_names = self.geometry.get_external_airfoil_names()
+        current_dir = os.getcwd()
+        for airfoil in airfoil_names:
+            shutil.copy(os.path.join(current_dir, airfoil), self.temp_dir.name)
+
     def _write_cases(self):
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
@@ -299,6 +305,7 @@ class Session(object):
 
         if not self._calculated:
             self._write_geometry()
+            self._copy_airfoils()
 
             if self.cases is not None:
                 self._write_cases()
@@ -318,7 +325,6 @@ class Session(object):
                                     stdout=open(os.devnull, 'w') if not self.config['show_stdout'] else None,
                                     bufsize=0,  # Buffer size required for direct stdin/stdout access
                                     cwd=self.temp_dir.name)
-
 
     def get_results(self):
         if self._results is None:

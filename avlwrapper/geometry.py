@@ -50,6 +50,12 @@ class Geometry(Input):
         self.surfaces = surfaces
         self.bodies = bodies
 
+    def get_external_airfoil_names(self):
+        airfoils = []
+        for surface in self.surfaces:
+            airfoils += surface.get_external_airfoil_names()
+        return list(set(airfoils))
+
     def create_input(self):
         geom_str = "{name}\n#Mach\n{mach}\n".format(name=self.name, mach=self.mach)
         geom_str += "#iYsym iZsym Zsym\n{iy} {iz} {z_loc}\n".format(iy=self.y_symm.value,
@@ -101,6 +107,13 @@ class Surface(Input):
             self.span_spacing = span_spacing.value
         else:
             self.span_spacing = span_spacing
+
+    def get_external_airfoil_names(self):
+        airfoil_names = []
+        for section in self.sections:
+            if isinstance(section.airfoil, FileAirfoil):
+                airfoil_names.append(section.airfoil.file_name)
+        return airfoil_names
 
     def create_input(self):
 
