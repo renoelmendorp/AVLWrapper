@@ -6,6 +6,7 @@
 import os
 import re
 import subprocess
+import sys
 
 try:
     import tkinter as tk  # Python 3
@@ -17,7 +18,11 @@ try:
 except ImportError:
     from ConfigParser import ConfigParser  # Python 2
 
-import sys
+try:
+    FileNotFoundError  # Python 3
+except NameError:
+    FileNotFoundError = IOError  # Python 2
+
 __IS_PYTHON_3__ = not sys.version_info[0] < 3
 
 if __IS_PYTHON_3__:
