@@ -110,15 +110,21 @@ class Case(Input):
             # if a parameter object is given, add to the dict
             if isinstance(value, Parameter):
                 self.parameters[key] = value
-            # if the key is an existing case parameter, set the value
-            elif key in self.CASE_PARAMETERS.keys():
-                param_str = self.CASE_PARAMETERS[key]
-                self.parameters[param_str].value = value
-            # if an unknown key-value pair is given, assume its a control and create a parameter
             else:
-                param_str = key
-                self.controls.append(key)
-                self.parameters[param_str] = Parameter(name=param_str, value=value)
+                is_added = False
+                # if the key is an existing case parameter, set the value
+                if key in self.CASE_PARAMETERS.keys():
+                    param_str = self.CASE_PARAMETERS[key]
+                    self.parameters[param_str].value = value
+                    is_added = True
+                if key in self.CASE_STATES.keys():
+                    self.states[key].value = value
+                    is_added = True
+                # if an unknown key-value pair is given, assume its a control and create a parameter
+                if not is_added:
+                    param_str = key
+                    self.controls.append(key)
+                    self.parameters[param_str] = Parameter(name=param_str, value=value)
 
     def _set_default_parameters(self):
         # parameters default to 0.0
