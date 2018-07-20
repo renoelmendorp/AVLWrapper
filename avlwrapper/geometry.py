@@ -273,7 +273,7 @@ class DataAirfoil(Airfoil):
         header = super(DataAirfoil, self).create_input()
         data = ""
         for x, z in zip(self.x_data, self.z_data):
-            data += "{0} {0}\n".format(x, z)
+            data += "{0} {1}\n".format(x, z)
         return header + data
 
 
