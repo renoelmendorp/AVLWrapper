@@ -246,7 +246,7 @@ class Airfoil(Input):
 
     def create_input(self):
         if (self.x1 is not None) and (self.x2 is not None):
-            return "{0} {0} {0}\n".format(self.af_type.upper(), self.x1, self.x2)
+            return "{0} {1} {2}\n".format(self.af_type.upper(), self.x1, self.x2)
         else:
             return "{0}\n".format(self.af_type.upper())
 
@@ -309,7 +309,7 @@ class Design(Input):
         self.bias = bias
 
     def create_input(self):
-        return "DESIGN\n#Name Weight\n{0} {0}\n".format(self.name, self.bias)
+        return "DESIGN\n#Name Weight\n{0} {1}\n".format(self.name, self.bias)
 
 
 class ProfileDrag(Input):
