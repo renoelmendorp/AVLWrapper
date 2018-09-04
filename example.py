@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import json
-from avlwrapper import Geometry, Surface, Section, NacaAirfoil, Control, Point, Spacing, Session, Case, Parameter
+from avlwrapper import Geometry, Surface, Section, NacaAirfoil, Control, Point, Spacing, Session, Case, Parameter, ParameterSweep
 
 if __name__ == '__main__':
 
@@ -78,4 +78,14 @@ if __name__ == '__main__':
     session.show_geometry()
     results = session.get_results()
     with open('out.json', 'w') as f:
+        f.write(json.dumps(results))
+
+    polar_cases = ParameterSweep(base_case=cruise_trim_case,
+                                 parameters=[{'name': 'alpha',
+                                             'values': list(range(15))}])
+
+    session = Session(geometry=geometry, cases=polar_cases.cases)
+
+    results = session.get_results()
+    with open('out2.json', 'w') as f:
         f.write(json.dumps(results))

@@ -6,6 +6,7 @@
 from .core import Case, Parameter, Session
 from .geometry import Body, Control, DataAirfoil, Design, FileWrapper, FileAirfoil, Geometry, NacaAirfoil,\
     Point, ProfileDrag, Section, Symmetry, Spacing, Surface, Vector
+from .tools import ParameterSweep
 
 __author__ = "Reno Elmendorp"
 __status__ = "Development"
