@@ -39,18 +39,19 @@ if __name__ == '__main__':
                        duplicate_sign=1.0)
 
     # tail surface definition, sections are defined in-line
+    tail_sections = [Section(leading_edge_point=Point(3.5, 0, 0.2),
+                             chord=0.4,
+                             controls=[elevator]),
+                     Section(leading_edge_point=Point(3.7, 1.2, 0.2),
+                             chord=0.25,
+                             controls=[elevator])]
     tail_surface = Surface(name="Horizontal Stabiliser",
                            n_chordwise=8,
                            chord_spacing=Spacing.cosine,
                            n_spanwise=8,
                            span_spacing=Spacing.cosine,
                            y_duplicate=0.0,
-                           sections=[Section(leading_edge_point=Point(3.5, 0, 0.2),
-                                             chord=0.4,
-                                             controls=[elevator]),
-                                     Section(leading_edge_point=Point(3.7, 1.2, 0.2),
-                                             chord=0.25,
-                                             controls=[elevator])])
+                           sections=tail_sections)
 
     # geometry object (which corresponds to an AVL input-file)
     geometry = Geometry(name="Test wing",
@@ -61,28 +62,35 @@ if __name__ == '__main__':
                         surfaces=[wing_surface, tail_surface])
 
     # Cases (multiple cases can be defined)
-    cruise_case = Case(name='Cruise', alpha=4.0)  # Case defined by one angle-of-attack
 
-    # More elaborate case, angle-of-attack of 4deg, elevator parameter which sets Cm (pitching moment) to 0.0
+    # Case defined by one angle-of-attack
+    cruise_case = Case(name='Cruise', alpha=4.0)
+
+    # More elaborate case, angle-of-attack of 4deg,
+    # elevator parameter which sets Cm (pitching moment) to 0.0
+    control_param = Parameter(name='elevator', constraint='Cm', value=0.0)
     cruise_trim_case = Case(name='Trimmed',
                             alpha=4.0,
-                            elevator=Parameter(name='elevator', constraint='Cm', value=0.0))
+                            elevator=control_param)
 
     # Landing case; flaps down by 15deg
     landing_case = Case(name='Landing', alpha=7.0, flap=15.0)
 
     # create session with the geometry object and the cases
-    session = Session(geometry=geometry, cases=[cruise_case, cruise_trim_case, landing_case])
+    all_cases = [cruise_case, cruise_trim_case, landing_case]
+    session = Session(geometry=geometry, cases=all_cases)
+
+    # show geometry with AVL
+    session.show_geometry()
 
     # get results and write the resulting dict to a JSON-file
-    session.show_geometry()
     results = session.get_results()
     with open('out.json', 'w') as f:
         f.write(json.dumps(results))
 
     polar_cases = ParameterSweep(base_case=cruise_trim_case,
                                  parameters=[{'name': 'alpha',
-                                             'values': list(range(15))}])
+                                              'values': list(range(15))}])
 
     session = Session(geometry=geometry, cases=polar_cases.cases)
 
