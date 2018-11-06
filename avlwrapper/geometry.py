@@ -38,6 +38,43 @@ class Geometry(Input):
                  reference_point, mach=0.0, cd_p=None,
                  y_symmetry=Symmetry.none, z_symmetry=Symmetry.none,
                  z_symmetry_plane=0.0, surfaces=None, bodies=None):
+        """
+        :param name: aircraft name
+        :type name: str
+
+        :param reference_area: reference planform area for normalisation
+        :type reference_area: float
+
+        :param reference_chord: reference chord for normalisation
+        :type reference_chord: float
+
+        :param reference_span:  reference span for normalisation
+        :type reference_span: float
+
+        :param reference_point: reference point for moment calculations
+        :type reference_point: Point
+
+        :param mach: mach number
+        :type mach: float
+
+        :param cd_p: addition profile drag
+        :type cd_p: float or None
+
+        :param y_symmetry: symmetry normal to y-axis
+        :type y_symmetry: Symmetry
+
+        :param z_symmetry: symmetry normal to z-axis
+        :type z_symmetry: Symmetry
+
+        :param z_symmetry_plane: z-normal symmetry plane offset
+        :type z_symmetry_plane float
+
+        :param surfaces: AVL surfaces
+        :type surfaces: collections.Sequence[Surface]
+
+        :param bodies: AVL bodies
+        :type bodies: collections.Sequence[Body]
+        """
         self.name = name
         self.area = reference_area
         self.chord = reference_chord
@@ -58,8 +95,8 @@ class Geometry(Input):
         return list(set(airfoils))
 
     def create_input(self):
-        geom_str = ("{name}\n#Mach\n{mach}\n"
-            .format(name=self.name, mach=self.mach))
+        geom_str = ("{name}\n#Mach\n{mach}\n" .format(name=self.name,
+                                                      mach=self.mach))
         geom_str += ("#iYsym iZsym Zsym\n{iy} {iz} {z_loc}\n"
             .format(iy=self.y_symm.value,
                     iz=self.z_symm.value,
@@ -92,6 +129,55 @@ class Surface(Input):
                  angle=None, profile_drag=None, no_wake=False,
                  fixed=False, no_loads=False):
 
+        """
+        :param name: (unique) surface name
+        :type name: str
+
+        :param n_chordwise: number of chordwise panels
+        :type n_chordwise: int
+
+        :param chord_spacing: chordwise distribution type. See `Spacing` enum
+        :type chord_spacing: Spacing or float
+
+        :param sections: surface sections
+        :type sections: collections.Sequence[Section]
+
+        :param n_spanwise: number of spanwise panels
+        :type n_spanwise: int or None
+
+        :param component: component number for surface grouping. for detailed
+            explanation see AVL documentation
+        :type component: int or None
+
+        :param y_duplicate: mirrors the surface with a plane normal to the y-axis
+            see AVL documentation
+        :type y_duplicate: float or None
+
+        :param scaling: x, y, z scaling factors
+        :type scaling: Vector or None
+
+        :param translation: x, y, z translation vector
+        :type translation: Vector or None
+
+        :param angle: surface incidence angle
+        :type angle: float or None
+
+        :param profile_drag: set custom drag polar.
+            See AVL documentation for details.
+        :type profile_drag: ProfileDrag or None
+
+        :param no_wake: disables the kutta-condition on the surface
+            (will shed no wake)
+        :type no_wake: bool
+
+        :param fixed: surface will not be influenced
+            by freestream direction changes (for wind-tunnel walls, etc.)
+        :type fixed: bool
+
+        :param no_loads: surface forces are not included in the totals
+        :type no_loads: bool
+        """
+
         self.name = name
         self.n_chordwise = n_chordwise
         self.sections = sections
@@ -110,6 +196,7 @@ class Surface(Input):
             self.chord_spacing = chord_spacing.value
         else:
             self.chord_spacing = chord_spacing
+
         if isinstance(span_spacing, Spacing):
             self.span_spacing = span_spacing.value
         else:
@@ -119,7 +206,7 @@ class Surface(Input):
         airfoil_names = []
         for section in self.sections:
             if isinstance(section.airfoil, FileAirfoil):
-                airfoil_names.append(section.airfoil.file_name)
+                airfoil_names.append(section.airfoil.filename)
         return airfoil_names
 
     def create_input(self):
@@ -166,16 +253,54 @@ class Surface(Input):
 
 
 class Section(Input):
-
+    """AVL section"""
     def __init__(self, leading_edge_point, chord, angle=0, n_spanwise=None,
-                 span_spacing=None, airfoil=None, controls=None, design=None,
+                 span_spacing=None, airfoil=None, controls=None, design_vars=None,
                  cl_alpha_scaling=None, profile_drag=None):
+        """
+        :param leading_edge_point: section leading edge point
+        :type leading_edge_point: Point
+
+        :param chord: the chord length
+        :type chord: float
+
+        :param angle: the section angle. This will rotate the normal vectors
+            of the VLM panels. The panels will remain in stream-wise direction
+        :type angle: float or None
+
+        :param n_spanwise: number of spanwise panels in the next wing segment
+        :type n_spanwise: int or None
+
+        :param span_spacing: panel distribution type. See `Spacing` enum
+        :type span_spacing: Spacing or float or None
+
+        :param airfoil: Airfoil to be used at the section. AVL uses the airfoil
+            camber to calculate the surface normals.
+        :type airfoil: _Airfoil or collections.Sequence[None]
+
+        :param design_vars: perturbation of the local inflow angle by a set of
+            design variables.
+        :type design_vars: collections.Sequence[DesignVar] or
+            collections.Sequence[none]
+
+        :param controls: defines a hinge deflection
+        :type controls: collections.Sequence[Control] or
+            collections.Sequence[None]
+
+        :param cl_alpha_scaling: scales the effective dcl/dalpha of the section
+        :type cl_alpha_scaling: float or None
+
+        :param profile_drag: set custom drag polar.
+            See AVL documentation for details.
+        :type profile_drag: ProfileDrag or None
+        """
+
         self.leading_edge_point = leading_edge_point
         self.chord = chord
         self.angle = angle
         self.n_spanwise = n_spanwise
         self.airfoil = airfoil
-        self.design = design
+        self.design_vars = design_vars
         self.controls = controls
         self.cl_alpha_scaling = cl_alpha_scaling
         self.profile_drag = profile_drag
@@ -208,9 +333,12 @@ class Section(Input):
             section_str += self.airfoil.create_input()
         if self.controls is not None:
             for control in self.controls:
-                section_str += control.create_input()
-        if self.design is not None:
-            section_str += self.design.create_input()
+                if control is not None:
+                    section_str += control.create_input()
+        if self.design_vars is not None:
+            for design_var in self.design_vars:
+                if design_var is not None:
+                    section_str += design_var.create_input()
         if self.cl_alpha_scaling is not None:
             section_str += "CLAF\n{0}\n".format(self.cl_alpha_scaling)
         if self.profile_drag is not None:
@@ -219,9 +347,32 @@ class Section(Input):
 
 
 class Body(Input):
-
+    """AVL non-lifting body of revolution"""
     def __init__(self, name, n_body, body_spacing, body_section,
                  y_duplicate=None, scaling=None, translation=None):
+        """
+        :param name: body name
+        :type name: str
+
+        :param n_body: number of panels on body
+        :type n_body: int
+
+        :param body_spacing: panel distribution
+        :type body_spacing: Spacing
+
+        :param body_section: body section profile
+        :type body_section: BodyProfile
+
+        :param y_duplicate: mirror the surface normal to the y-axis
+        :type y_duplicate: float
+
+        :param scaling: x, y, z scaling factors
+        :type scaling: Vector or None
+
+        :param translation: x, y, z translation vector
+        :type translation: Vector or None
+        """
+
         self.name = name
         self.n_body = n_body
         self.body_section = body_section
@@ -250,8 +401,8 @@ class Body(Input):
                          .format(self.translation))
 
 
-class Airfoil(Input):
-
+class _Airfoil(Input):
+    """Generic airfoil"""
     def __init__(self, af_type, x1=None, x2=None):
         self.af_type = af_type
         self.x1 = x1
@@ -265,9 +416,20 @@ class Airfoil(Input):
             return "{0}\n".format(self.af_type.upper())
 
 
-class NacaAirfoil(Airfoil):
+class NacaAirfoil(_Airfoil):
+    """NACA 4-digit airfoil"""
 
     def __init__(self, naca, x1=None, x2=None):
+        """
+        :param naca: NACA-4 digit designation
+        :type naca: str
+
+        :param x1: start of x/c range (optional)
+        :type x1: float or None
+
+        :param x2: end of x/c range (optional)
+        :type x2: float or None
+        """
         super(NacaAirfoil, self).__init__('naca', x1, x2)
         self.naca = naca
 
@@ -276,9 +438,23 @@ class NacaAirfoil(Airfoil):
         return header + "{0}\n".format(self.naca)
 
 
-class DataAirfoil(Airfoil):
+class DataAirfoil(_Airfoil):
+    """Airfoil defined with x and z ordinates"""
 
     def __init__(self, x_data, z_data, x1=None, x2=None):
+        """
+        :param x_data: x ordinates
+        :type x_data: collections.Sequence[float]
+
+        :param z_data: z ordinates
+        :type z_data: collections.Sequence[float]
+
+        :param x1: start of x/c range (optional)
+        :type x1: float or None
+
+        :param x2: end of x/c range (optional)
+        :type x2: float or None
+        """
         super(DataAirfoil, self).__init__('airfoil', x1, x2)
         self.x_data = x_data
         self.z_data = z_data
@@ -291,21 +467,72 @@ class DataAirfoil(Airfoil):
         return header + data
 
 
-class FileAirfoil(Airfoil):
+class FileAirfoil(_Airfoil):
+    """Airfoil defined from .dat file"""
 
-    def __init__(self, file, x1=None, x2=None):
+    def __init__(self, filename, x1=None, x2=None):
+        """
+        :param filename: .dat file name
+        :type filename: str
+
+        :param x1: start of x/c range (optional)
+        :type x1: float or None
+
+        :param x2: end of x/c range (optional)
+        :type x2: float or None
+        """
         super(FileAirfoil, self).__init__('afile', x1, x2)
-        self.file_name = file
+        self.filename = filename
 
     def create_input(self):
         header = super(FileAirfoil, self).create_input()
-        return header + "{0}\n".format(self.file_name)
+        return header + "{0}\n".format(self.filename)
+
+
+class BodyProfile(_Airfoil):
+    """Body profile from a data file"""
+
+    def __init__(self, filename, x1=None, x2=None):
+        """
+        :param filename: .dat file name
+        :type filename: str
+
+        :param x1: start of x/c range (optional)
+        :type x1: float or None
+
+        :param x2: end of x/c range (optional)
+        :type x2: float or None
+        """
+        super(BodyProfile, self).__init__('bfile', x1, x2)
+        self.filename = filename
+
+    def create_input(self):
+        header = super(BodyProfile, self).create_input()
+        return header + "{}\n".format(self.filename)
 
 
 class Control(Input):
+    """Defines a hinge deflection"""
 
     def __init__(self, name, gain, x_hinge, duplicate_sign,
                  hinge_vector=Vector(0, 0, 0)):
+        """
+        :param name: control name
+        :type name: str
+
+        :param gain: control deflection gain
+        :type gain: float
+
+        :param x_hinge: x/c location of the hinge
+        :type x_hinge: float
+
+        :param duplicate_sign: sign of deflection for duplicated surface
+        :type duplicate_sign: int
+
+        :param hinge_vector: hinge_vector. Defaults to Vector(0,0,0) which puts
+                the hinge vector along the hinge
+        :type hinge_vector: Vector
+        """
         self.name = name
         self.gain = gain
         self.x_hinge = x_hinge
@@ -320,19 +547,39 @@ class Control(Input):
         return header + body
 
 
-class Design(Input):
+class DesignVar(Input):
+    """Defines a design variable on the section local inflow angle"""
 
-    def __init__(self, name, bias):
+    def __init__(self, name, weight):
+        """
+        :param name: variable name
+        :type name: str
+
+        :param weight: variable weight
+        :type weight: float
+        """
         self.name = name
-        self.bias = bias
+        self.weight = weight
 
     def create_input(self):
-        return "DESIGN\n#Name Weight\n{0} {1}\n".format(self.name, self.bias)
+        return "DESIGN\n#Name Weight\n{0} {1}\n".format(self.name, self.weight)
 
 
 class ProfileDrag(Input):
+    """ Specifies a simple profile-drag CD(CL) function.
+        The function is parabolic between CL1..CL2 and
+        CL2..CL3, with rapid increases in CD below CL1 and above CL3.
+        See AVL documentation for details"""
 
     def __init__(self, cl, cd):
+        """
+        :param cl: lift-coefficients
+        ":type cl: collections.Sequence[float]
+
+        :param cd: drag-coefficients
+        :type cd: collections.Sequence[float]
+        """
+
         if len(cl) != 3 or len(cd) != 3:
             raise InputError("Invalid profile drag parameters "
                              "(should be of 3 CLs and 3 CDs")
@@ -348,12 +595,17 @@ class ProfileDrag(Input):
 
 class FileWrapper(Input):
     """Wraps an existing input file to be used with the wrapper"""
-    def __init__(self, file):
-        self.file = file
-        with open(self.file, 'r') as in_file:
+
+    def __init__(self, filename):
+        """
+        :param filename: AVL input file
+        :type filename: str
+        """
+        self.file = filename
+        with open(self.filename, 'r') as in_file:
             self.name = in_file.readline().rstrip()
 
     def create_input(self):
-        with open(self.file, 'r') as in_file:
+        with open(self.filename, 'r') as in_file:
             lines = in_file.readlines()
         return "".join(lines)

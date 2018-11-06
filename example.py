@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 import json
-from avlwrapper import Geometry, Surface, Section, NacaAirfoil, Control, Point, Spacing, Session, Case, Parameter, ParameterSweep
+from avlwrapper import (Geometry, Surface, Section, NacaAirfoil, Control,
+                        Point, Spacing, Session, Case, Parameter,
+                        ParameterSweep)
 
 if __name__ == '__main__':
 
@@ -9,7 +11,7 @@ if __name__ == '__main__':
     flap_control = Control(name="flap",
                            gain=1.0,
                            x_hinge=0.8,
-                           duplicate_sign=1.0)
+                           duplicate_sign=1)
 
     # wing root section with a flap control and NACA airfoil
     root_section = Section(leading_edge_point=Point(0, 0, 0),
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     elevator = Control(name="elevator",
                        gain=1.0,
                        x_hinge=0.6,
-                       duplicate_sign=1.0)
+                       duplicate_sign=1)
 
     # tail surface definition, sections are defined in-line
     tail_sections = [Section(leading_edge_point=Point(3.5, 0, 0.2),

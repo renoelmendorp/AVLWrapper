@@ -52,7 +52,17 @@ class Input(object):
 class Parameter(Input):
     """Parameter used in the case definition"""
     def __init__(self, name, value, constraint=None):
+        """
+        :param name: Parameter name, if not in Case.CASE_PARAMETERS, it's
+            assumed to by a control name
+        :type name: str
 
+        :param value: Parameter value
+        :type value: float
+
+        :param constraint: Parameter constraint, see Case.VALID_CONSTRAINTS
+        :type constraint: str or None
+        """
         self.name = name
         self.value = value
 
@@ -68,7 +78,7 @@ class Parameter(Input):
                                                     self.value)
 
 
-class State(Input):
+class _State(Input):
     """State used in the case definition"""
     def __init__(self, name, value, unit=''):
         self.name = name
@@ -107,7 +117,14 @@ class Case(Input):
                    'visc CM_a': (0.0, ''), 'visc CM_u': (0.0, '')}
 
     def __init__(self, name, **kwargs):
+        """
+        :param name: case name
+        :type name: str
 
+        :param kwargs: key-value pairs
+            keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control
+            values should be a numeric value or a Parameter object
+        """
         self.name = name
         self.number = 1
         self.parameters = self._set_default_parameters()
@@ -139,7 +156,7 @@ class Case(Input):
                 for _, name in self.CASE_PARAMETERS.items()}
 
     def _set_default_states(self):
-        return {key: State(name=key, value=value[0], unit=value[1])
+        return {key: _State(name=key, value=value[0], unit=value[1])
                 for key, value in self.CASE_STATES.items()}
 
     def _check(self):
@@ -187,6 +204,17 @@ class Session(object):
                'HingeMoments': 'hm'}
 
     def __init__(self, geometry=None, cases=None, run_keys=None):
+        """
+        :param geometry: AVL geometry
+        :type geometry: Geometry
+
+        :param cases: Cases to include in input files
+        :type cases: collections.Sequence[Case] or None
+
+        :param run_keys: (optional) run keys (if not provided, all cases will
+            be evaluated
+        :type run_keys: str
+        """
         self._temp_dir = None
 
         config_path = os.path.join(__MODULE_DIR__, CONFIG_FILE)
@@ -324,7 +352,7 @@ class Session(object):
                 ext = self.OUTPUTS[output]
                 file_name = self._get_output_file(case, ext)
                 file_path = os.path.join(self.temp_dir.name, file_name)
-                reader = OutputReader(file_path=file_path)
+                reader = _OutputReader(file_path=file_path)
                 results[case.name][output] = reader.get_content()
 
         return results
@@ -385,11 +413,11 @@ class Session(object):
         def close_fn(): process.stdin.write("\n\nquit\n".encode())
 
         tk_root = tk.Tk()
-        app = CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
+        app = _CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
         app.mainloop()
 
 
-class OutputReader(object):
+class _OutputReader(object):
 
     SURFACE_RE = 'Surface\s+#\s*\d+\s+(.*)'
     STRIP_RE = 'Strip\s+#\s+(\d+)\s+'
@@ -660,7 +688,7 @@ class OutputReader(object):
         return results
 
 
-class CloseWindow(tk.Frame):
+class _CloseWindow(tk.Frame):
     def __init__(self, on_open=None, on_close=None, master=None):
         # On Python 2, tk.Frame is an old-style class
         tk.Frame.__init__(self, master)

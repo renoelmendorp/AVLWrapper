@@ -6,9 +6,15 @@ from avlwrapper import Case
 
 
 class ParameterSweep(object):
-
+    """Helper class to generate cases to evaluate parameter sweeps"""
     def __init__(self, base_case, parameters):
+        """
+        :param base_case: default case
+        :type base_case: Case
 
+        :param parameters: dictionary with 'name' and 'value' keys
+        :type parameters: dict
+        """
         self.base_case = base_case
         self.parameters = parameters
 
