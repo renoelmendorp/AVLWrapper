@@ -85,6 +85,8 @@ if __name__ == '__main__':
     # show geometry with AVL
     session.show_geometry()
 
+    session.show_trefftz_plot(1)
+
     # get results and write the resulting dict to a JSON-file
     results = session.get_results()
     with open('out.json', 'w') as f:

@@ -357,7 +357,7 @@ class Session(object):
 
         return results
 
-    def _run_analysis(self):
+    def _run_analysis(self, run_keys=None):
 
         if not self._calculated:
             self._write_geometry()
@@ -366,10 +366,11 @@ class Session(object):
             if self.cases is not None:
                 self._write_cases()
 
-            if self.run_keys is None:
-                run_keys = self._get_default_run_keys()
-            else:
-                run_keys = self.run_keys
+            if run_keys is None:
+                if self.run_keys is None:
+                    run_keys = self._get_default_run_keys()
+                else:
+                    run_keys = self.run_keys
 
             process = self._get_avl_process()
             process.communicate(input=run_keys.encode())
@@ -401,11 +402,7 @@ class Session(object):
         self._results = None
         self._calculated = False
 
-    def show_geometry(self):
-        self._write_geometry()
-        run = "load {0}\n".format(self.model_file)
-        run += "oper\ng\n"
-
+    def _run_with_close_window(self, run):
         process = self._get_avl_process()
 
         def open_fn(): process.stdin.write(run.encode())
@@ -415,6 +412,25 @@ class Session(object):
         tk_root = tk.Tk()
         app = _CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
         app.mainloop()
+
+    def show_geometry(self):
+        self._write_geometry()
+        run = "load {0}\n".format(self.model_file)
+        run += "oper\ng\n"
+
+        self._run_with_close_window(run)
+
+    def show_trefftz_plot(self, case_number):
+        self._write_geometry()
+        self._write_cases()
+
+        run = "load {}\n".format(self.model_file)
+        run += "case {}\n".format(self.case_file)
+        run += "oper\n"
+        run += "{}\nx\n".format(case_number)
+        run += "t\n"
+
+        self._run_with_close_window(run)
 
 
 class _OutputReader(object):

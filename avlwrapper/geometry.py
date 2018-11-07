@@ -145,6 +145,9 @@ class Surface(Input):
         :param n_spanwise: number of spanwise panels
         :type n_spanwise: int or None
 
+        :param span_spacing: spanwise distribution type. See `Spacing` enum
+        :type span_spacing: Spacing or float or None
+
         :param component: component number for surface grouping. for detailed
             explanation see AVL documentation
         :type component: int or None

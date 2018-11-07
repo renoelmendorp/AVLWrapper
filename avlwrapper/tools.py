@@ -12,8 +12,8 @@ class ParameterSweep(object):
         :param base_case: default case
         :type base_case: Case
 
-        :param parameters: dictionary with 'name' and 'value' keys
-        :type parameters: dict
+        :param parameters: list of dictionaries with 'name' and 'value' keys
+        :type parameters: collections.Sequence[dict]
         """
         self.base_case = base_case
         self.parameters = parameters
