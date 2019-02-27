@@ -605,10 +605,30 @@ class FileWrapper(Input):
         :type filename: str
         """
         self.filename = filename
+        self._file_content = None
         with open(self.filename, 'r') as in_file:
             self.name = in_file.readline().rstrip()
 
+    @property
+    def file_content(self):
+        if self._file_content is None:
+            with open(self.filename, 'r') as in_file:
+                lines = in_file.readlines()
+            self._file_content = lines
+        return self._file_content
+
     def create_input(self):
-        with open(self.filename, 'r') as in_file:
-            lines = in_file.readlines()
-        return "".join(lines)
+        return "".join(self.file_content)
+
+    def get_external_airfoil_names(self):
+        airfoils = []
+        get_next = False
+        for line in self._file_content:
+            if get_next:
+                stripped_line = line.strip()
+                if not (stripped_line.startswith('!') or stripped_line.startswith('#')):
+                    airfoils.append(line.strip())
+                get_next = False
+            if 'AFILE' in line:
+                get_next = True
+        return airfoils
