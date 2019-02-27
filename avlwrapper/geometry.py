@@ -604,7 +604,7 @@ class FileWrapper(Input):
         :param filename: AVL input file
         :type filename: str
         """
-        self.file = filename
+        self.filename = filename
         with open(self.filename, 'r') as in_file:
             self.name = in_file.readline().rstrip()
 
