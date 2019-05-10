@@ -5,34 +5,47 @@ from itertools import product
 from avlwrapper import Case
 
 
-class ParameterSweep(object):
-    """Helper class to generate cases to evaluate parameter sweeps"""
-    def __init__(self, base_case, parameters):
-        """
-        :param base_case: default case
-        :type base_case: Case
+def create_sweep_cases(base_case, parameters):
+    """Creates cases for a parameter sweep
 
-        :param parameters: list of dictionaries with 'name' and 'value' keys
-        :type parameters: collections.Sequence[dict]
-        """
-        self.base_case = base_case
-        self.parameters = parameters
+    :param base_case: base Case object
+    :type base_case: Case
 
-    @property
-    def cases(self):
-        if isinstance(self.parameters, dict):
-            parameter_names = [self.parameters['name']]
-            parameter_values = [self.parameters['values']]
-        else:
-            parameter_names = [p['name'] for p in self.parameters]
-            parameter_values = product(*[p['values']
-                                         for p in self.parameters])
+    :param parameters: list of a dict with keys: name and values
+    :type parameters: collections.Sequence
+    """
 
-        cases = []
-        for idx, values in enumerate(parameter_values):
-            all_params = dict(zip(parameter_names, values))
-            case = Case(name="{}-{}".format(self.base_case.name, idx),
-                        **all_params)
-            cases.append(case)
+    # ensure input is a list if a dict (only one parameter) is given
+    if isinstance(parameters, dict):
+        parameters = [parameters]
 
-        return cases
+    parameter_names = [p['name'] for p in parameters]
+    parameter_values = product(*[p['values']
+                                 for p in parameters])
+
+    cases = []
+    for idx, values in enumerate(parameter_values):
+        all_params = dict(zip(parameter_names, values))
+        case = Case(name="{}-{}".format(base_case.name, idx), **all_params)
+        cases.append(case)
+
+    return cases
+
+
+def partitioned_cases(cases, n_cases=25):
+    """Partitions cases
+
+    :param cases: list of AVL cases to partition
+    :type cases: collections.Sequence
+
+    :param n_cases: (optional) number of cases per partition
+    :type n_cases: int
+    """
+
+    return _partitioned(cases, n_cases)
+
+
+# From: https://gist.github.com/renoelmendorp/09e397297ffaef2af81b941d2ef4d321
+def _partitioned(l, n):
+    for idx in range(0, len(l), n):
+        yield l[idx:idx + n]

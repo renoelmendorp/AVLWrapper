@@ -3,7 +3,7 @@
 import json
 from avlwrapper import (Geometry, Surface, Section, NacaAirfoil, Control,
                         Point, Spacing, Session, Case, Parameter,
-                        ParameterSweep)
+                        create_sweep_cases, partitioned_cases)
 
 if __name__ == '__main__':
 
@@ -92,12 +92,20 @@ if __name__ == '__main__':
     with open('out.json', 'w') as f:
         f.write(json.dumps(results))
 
-    polar_cases = ParameterSweep(base_case=cruise_trim_case,
-                                 parameters=[{'name': 'alpha',
-                                              'values': list(range(15))}])
+    # generate cases for a parameter sweep
+    polar_cases = create_sweep_cases(base_case=cruise_trim_case,
+                                     parameters=[{'name': 'alpha',
+                                                  'values': list(range(15))},
+                                                 {'name': 'beta',
+                                                  'values': list(range(-5, 6))}])
 
-    session = Session(geometry=geometry, cases=polar_cases.cases)
+    # avl only supports 25 cases, use partitioned_cases generator
+    partitions = partitioned_cases(polar_cases)
 
-    results = session.get_results()
+    results = {}
+    for partition in partitions:
+        session = Session(geometry=geometry, cases=partition)
+        results.update(session.get_results())
+
     with open('out2.json', 'w') as f:
         f.write(json.dumps(results))
