@@ -7,7 +7,7 @@ try:
 except ImportError:
     raise ImportError('Please install the enum34 pip package.')
 
-from .core import InputError, Input
+from .session import InputError, Input
 
 Point = namedtuple('Point', 'x y z')
 Vector = namedtuple('Vector', 'x y z')
