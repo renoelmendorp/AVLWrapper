@@ -1,6 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
 """ AVL Geometry classes
 """
 from collections import namedtuple
@@ -11,9 +8,6 @@ except ImportError:
     raise ImportError('Please install the enum34 pip package.')
 
 from .core import InputError, Input
-
-__author__ = "Reno Elmendorp"
-__status__ = "Development"
 
 Point = namedtuple('Point', 'x y z')
 Vector = namedtuple('Vector', 'x y z')
