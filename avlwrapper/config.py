@@ -76,11 +76,20 @@ def check_bin(bin_path):
         if os.path.isabs(bin_path):
             if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
                 return bin_path
-
-        # check module dir
-        local_bin = os.path.join(MODULE_DIR, bin_path)
+            
+        # append .exe if on Windows
+        if os.name == 'nt' and not bin_path.endswith('.exe'):
+            bin_path += '.exe'
+            
+        # check working dir
+        local_bin = os.path.join(os.getcwd(), bin_path)
         if os.path.exists(local_bin) and os.access(local_bin, os.X_OK):
             return local_bin
+
+        # check module dir
+        module_bin = os.path.join(MODULE_DIR, bin_path)
+        if os.path.exists(module_bin) and os.access(module_bin, os.X_OK):
+            return module_bin
 
         # check system path
         for path in os.environ['PATH'].split(os.pathsep):
