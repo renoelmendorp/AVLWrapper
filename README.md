@@ -13,8 +13,12 @@ Not implemented (yet):
 * Eigen-mode analyses
 * Time-domain analyses
 
-## Requirements
-* Developed and tested with Python 3.6, compatible with Python 2.7
-* AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed and the executable path should be set in `avlwrapper/config.cfg`.
+## Installation
+The wrapper can be installed directly from Git with pip:
+```
+$ pip install git+https://github.com/renoelmendorp/AVLWrapper@master
+```
 
+## Usage
+* AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed and the executable path should be set in `avlwrapper/config.cfg`.
 For an usage example, see `example.py`
