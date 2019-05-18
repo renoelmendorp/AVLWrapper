@@ -18,7 +18,7 @@ setup(
     version='0.1',
     url='https://github.com/renoelmendorp/AVLWrapper',
     author='Reno Elmendorp',
-    license='LICENCE',
+    license='LICENSE',
     packages=['avlwrapper'],
     install_requires=dependencies,
     include_package_data=True,
