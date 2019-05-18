@@ -19,9 +19,10 @@ The wrapper can be installed directly from Git with pip:
 $ pip install git+https://github.com/renoelmendorp/AVLWrapper@master
 ```
 
-AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed and the executable path should be set in the configuration file.
+AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed.
+
 By default, the wrapper will check the current directory, the module directory and the system path.
-See [Changing settings](#changing-settings) how to change the path
+See [Changing settings](#changing-settings) how to change the executable path to a custom location.
 
 ## Usage
 For an usage example, see `example.py`
