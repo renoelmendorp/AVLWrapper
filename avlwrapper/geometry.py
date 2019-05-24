@@ -92,9 +92,9 @@ class Geometry(Input):
         geom_str = ("{name}\n#Mach\n{mach}\n" .format(name=self.name,
                                                       mach=self.mach))
         geom_str += ("#iYsym iZsym Zsym\n{iy} {iz} {z_loc}\n"
-            .format(iy=self.y_symm.value,
-                    iz=self.z_symm.value,
-                    z_loc=self.z_symm_plane))
+                     .format(iy=self.y_symm.value,
+                             iz=self.z_symm.value,
+                             z_loc=self.z_symm_plane))
         geom_str += "#Sref Cref Bref\n{s} {c} {b}\n".format(s=self.area,
                                                             b=self.span,
                                                             c=self.chord)

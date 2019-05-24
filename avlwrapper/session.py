@@ -203,7 +203,7 @@ class Session(object):
         :param config: (optional) dictionary containing setting
         :type config: Configuration
         """
-        
+
         self._temp_dir = None
         self.config = config
 
@@ -236,7 +236,7 @@ class Session(object):
 
     def _clean_temp_dir(self):
         self.temp_dir.cleanup()
-    
+
     @property
     def _output(self):
         return {k: v for k, v in self.OUTPUTS.items()

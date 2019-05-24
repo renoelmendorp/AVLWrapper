@@ -45,7 +45,7 @@ class OutputReader(object):
 
         # Find start of table based on header
         start_line, end_line = get_table_start_end(content,
-                                                         '(n\s+Area\s+CL)')
+                                                   '(n\s+Area\s+CL)')
         table_content = content[start_line:end_line]
 
         surface_data = self._process_surface_table(table_content)
@@ -134,7 +134,7 @@ class OutputReader(object):
         for surface_name, surface_lines in list(surface_tables.items()):
             # tables split by strip
             strip_tables = split_lines(surface_lines,
-                                             self.STRIP_RE)
+                                       self.STRIP_RE)
             data_tables[surface_name] = dict()
             for strip_name, strip_lines in list(strip_tables.items()):
                 start_line, end_line = (get_table_start_end(
@@ -202,7 +202,7 @@ def get_vars(content):
     # Search for "key = value" tuples and store in a dictionary
     result = dict()
     for name, value in re.findall('(\S+)\s+=\s+([-\dE.]+)',
-                                    ''.join(content)):
+                                  ''.join(content)):
         result[name] = float(value)
     return result
 
@@ -231,7 +231,7 @@ def split_lines(lines, re_str):
 def get_line_values(data_line):
     values = [float(s) for s in re.findall('([-\dE.]+)', data_line)]
     return values
-    
+
 def remove_ydup(name):
     return re.sub('\(YDUP\)', '', name).strip()
 
