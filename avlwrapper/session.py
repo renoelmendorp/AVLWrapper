@@ -62,7 +62,7 @@ class Parameter(Input):
                                                     self.value)
 
 
-class _State(Input):
+class State(Input):
     """State used in the case definition"""
     def __init__(self, name, value, unit=''):
         self.name = name
@@ -84,21 +84,34 @@ class Case(Input):
     VALID_CONSTRAINTS = ['alpha', 'beta', 'pb/2V', 'qc/2V',
                          'rb/2V', 'CL', 'CY', 'Cl', 'Cm', 'Cn']
 
-    CASE_STATES = {'alpha': (0.0, 'deg'), 'beta': (0.0, 'deg'),
-                   'pb/2V': (0.0, ''), 'qc/2V': (0.0, ''), 'rb/2V': (0.0, ''),
-                   'CL': (0.0, ''), 'CDo': (None, ''),
-                   'bank': (0.0, 'deg'), 'elevation': (0.0, 'deg'),
-                   'heading': (0.0, 'deg'), 'Mach': (None, ''),
-                   'velocity': (0.0, 'm/s'), 'density': (1.225, 'kg/m^3'),
-                   'grav.acc.': (9.81, 'm/s^2'), 'turn_rad.': (0.0, 'm'),
-                   'load_fac.': (0.0, ''),
-                   'X_cg': (None, 'm'), 'Y_cg': (None, 'm'), 'Z_cg': (None, 'm'),
-                   'mass': (1.0, 'kg'),
-                   'Ixx': (1.0, 'kg-m^2'), 'Iyy': (1.0, 'kg-m^2'),
-                   'Izz': (1.0, 'kg-m^2'), 'Ixy': (0.0, 'kg-m^2'),
-                   'Iyz': (0.0, 'kg-m^2'), 'Izx': (0.0, 'kg-m^2'),
-                   'visc CL_a': (0.0, ''), 'visc CL_u': (0.0, ''),
-                   'visc CM_a': (0.0, ''), 'visc CM_u': (0.0, '')}
+    CASE_STATES = {'alpha': ('alpha', 0.0, 'deg'),
+                   'beta': ('beta', 0.0, 'deg'),
+                   'pb2V': ('pb/2V', 0.0, ''), 'qc/2V': ('qc/2V', 0.0, ''),
+                   'rb2V': ('rb/2V', 0.0, ''), 'CL': ('CL', 0.0, ''),
+                   'cd_p': ('CDo', None, ''),
+                   'bank': ('bank', 0.0, 'deg'),
+                   'elevation': ('elevation', 0.0, 'deg'),
+                   'heading': ('heading', 0.0, 'deg'),
+                   'mach': ('Mach', None, ''),
+                   'velocity': ('velocity', 0.0, 'm/s'),
+                   'density': ('density', 1.225, 'kg/m^3'),
+                   'gravity': ('grav.acc.', 9.81, 'm/s^2'),
+                   'turn_rad': ('turn_rad.', 0.0, 'm'),
+                   'load_fac': ('load_fac.', 0.0, ''),
+                   'X_cg': ('X_cg', None, 'm'),
+                   'Y_cg': ('Y_cg', None, 'm'),
+                   'Z_cg': ('Z_cg', None, 'm'),
+                   'mass': ('mass', 1.0, 'kg'),
+                   'Ixx': ('Ixx', 1.0, 'kg-m^2'),
+                   'Iyy': ('Iyy', 1.0, 'kg-m^2'),
+                   'Izz': ('Izz', 1.0, 'kg-m^2'),
+                   'Ixy': ('Ixy', 0.0, 'kg-m^2'),
+                   'Iyz': ('Iyz', 0.0, 'kg-m^2'),
+                   'Izx': ('Izx', 0.0, 'kg-m^2'),
+                   'visc_CL_a': ('visc CL_a', 0.0, ''),
+                   'visc_CL_u': ('visc CL_u', 0.0, ''),
+                   'visc_CM_a': ('visc CM_a', 0.0, ''),
+                   'visc_CM_u': ('visc CM_u', 0.0, '')}
 
     def __init__(self, name, **kwargs):
         """
@@ -140,7 +153,7 @@ class Case(Input):
                 for _, name in self.CASE_PARAMETERS.items()}
 
     def _set_default_states(self):
-        return {key: _State(name=key, value=value[0], unit=value[1])
+        return {key: State(name=value[0], value=value[1], unit=value[2])
                 for key, value in self.CASE_STATES.items()}
 
     def _check(self):
@@ -148,10 +161,10 @@ class Case(Input):
         self._check_states()
 
     def _check_states(self):
-        for state in self.states.values():
-            if state.name not in self.CASE_STATES.keys():
+        for key in self.states.keys():
+            if key not in self.CASE_STATES.keys():
                 raise InputError("Invalid state variable: {0}"
-                                 .format(state.name))
+                                 .format(key))
 
     def _check_parameters(self):
         for param in self.parameters.values():
@@ -260,8 +273,8 @@ class Session(object):
         geom_defaults = {'X_cg': self.geometry.point[0],
                          'Y_cg': self.geometry.point[1],
                          'Z_cg': self.geometry.point[2],
-                         'Mach': self.geometry.mach,
-                         'CDo': self.geometry.cd_p}
+                         'mach': self.geometry.mach,
+                         'cd_p': self.geometry.cd_p}
         
         for case in self.cases:
             for key, val in geom_defaults.items():
