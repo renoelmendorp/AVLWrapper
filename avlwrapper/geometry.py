@@ -29,7 +29,7 @@ class Symmetry(Enum):
 class Geometry(Input):
     """Geometry object, represents the content of an AVL geometry input file"""
     def __init__(self, name, reference_area, reference_chord, reference_span,
-                 reference_point, mach=0.0, cd_p=None,
+                 reference_point, mach=0.0, cd_p=0.0,
                  y_symmetry=Symmetry.none, z_symmetry=Symmetry.none,
                  z_symmetry_plane=0.0, surfaces=None, bodies=None):
         """
@@ -101,8 +101,7 @@ class Geometry(Input):
 
         geom_str += "#Xref Yref Zref\n{p.x} {p.y} {p.z}\n".format(p=self.point)
 
-        if self.cd_p is not None:
-            geom_str += "{0}\n".format(self.cd_p)
+        geom_str += "{0}\n".format(self.cd_p)
 
         if self.surfaces is not None:
             for surface in self.surfaces:

@@ -86,13 +86,13 @@ class Case(Input):
 
     CASE_STATES = {'alpha': (0.0, 'deg'), 'beta': (0.0, 'deg'),
                    'pb/2V': (0.0, ''), 'qc/2V': (0.0, ''), 'rb/2V': (0.0, ''),
-                   'CL': (0.0, ''), 'CDo': (0.0, ''),
-                   'bank': (0.0, 'beg'), 'elevation': (0.0, 'deg'),
-                   'heading': (0.0, 'deg'), 'Mach': (0.0, ''),
+                   'CL': (0.0, ''), 'CDo': (None, ''),
+                   'bank': (0.0, 'deg'), 'elevation': (0.0, 'deg'),
+                   'heading': (0.0, 'deg'), 'Mach': (None, ''),
                    'velocity': (0.0, 'm/s'), 'density': (1.225, 'kg/m^3'),
                    'grav.acc.': (9.81, 'm/s^2'), 'turn_rad.': (0.0, 'm'),
                    'load_fac.': (0.0, ''),
-                   'X_cg': (0.0, 'm'), 'Y_cg': (0.0, 'm'), 'Z_cg': (0.0, 'm'),
+                   'X_cg': (None, 'm'), 'Y_cg': (None, 'm'), 'Z_cg': (None, 'm'),
                    'mass': (1.0, 'kg'),
                    'Ixx': (1.0, 'kg-m^2'), 'Iyy': (1.0, 'kg-m^2'),
                    'Izz': (1.0, 'kg-m^2'), 'Ixy': (0.0, 'kg-m^2'),
@@ -254,8 +254,23 @@ class Session(object):
         for airfoil in airfoil_names:
             airfoil_path = os.path.join(current_dir, airfoil)
             shutil.copy(airfoil_path, self.temp_dir.name)
+            
+    def _pepare_cases(self):
+        # If not set, make sure XYZref, Mach and CD0 default to geometry input
+        geom_defaults = {'X_cg': self.geometry.point[0],
+                         'Y_cg': self.geometry.point[1],
+                         'Z_cg': self.geometry.point[2],
+                         'Mach': self.geometry.mach,
+                         'CDo': self.geometry.cd_p}
+        
+        for case in self.cases:
+            for key, val in geom_defaults.items():
+                if case.states[key].value is None:
+                    case.states[key].value = val
 
     def _write_cases(self):
+        self._pepare_cases()
+        
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
             raise InputError('Number of cases is larger than '
