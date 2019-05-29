@@ -15,7 +15,7 @@ include_files = ['*.cfg']
 
 setup(
     name='avlwrapper',
-    version='0.1',
+    version='0.1.1',
     url='https://github.com/renoelmendorp/AVLWrapper',
     author='Reno Elmendorp',
     license='LICENSE',
