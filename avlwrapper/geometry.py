@@ -599,16 +599,35 @@ class FileWrapper(Input):
         """
         self.filename = filename
         self._file_content = None
-        with open(self.filename, 'r') as in_file:
-            self.name = in_file.readline().rstrip()
 
     @property
     def file_content(self):
         if self._file_content is None:
             with open(self.filename, 'r') as in_file:
                 lines = in_file.readlines()
-            self._file_content = lines
+            lines = remove_comments(lines)
+            lines = remove_empty(lines)
+            self._file_content = list(lines)
         return self._file_content
+
+    @property
+    def name(self):
+        return self.file_content[0].strip()
+
+    @property
+    def mach(self):
+        return float(self.file_content[1])
+
+    @property
+    def point(self):
+        return [float(s) for s in self.file_content[4].split()]
+
+    @property
+    def cd_p(self):
+        try:
+            return float(self.file_content[5])
+        except ValueError:
+            return 0.0
 
     def create_input(self):
         return "".join(self.file_content)
@@ -616,12 +635,20 @@ class FileWrapper(Input):
     def get_external_airfoil_names(self):
         airfoils = []
         get_next = False
-        for line in self._file_content:
+        for line in self.file_content:
             if get_next:
-                stripped_line = line.strip()
-                if not (stripped_line.startswith('!') or stripped_line.startswith('#')):
-                    airfoils.append(line.strip())
+                airfoils.append(line.strip())
                 get_next = False
             if 'AFILE' in line:
                 get_next = True
         return airfoils
+
+
+def remove_comments(lines):
+    def has_no_comment(line):
+        return not (line.startswith('!') or line.startswith('#'))
+    return filter(has_no_comment, lines)
+
+
+def remove_empty(lines):
+    return filter(lambda line: line.strip() != '', lines)

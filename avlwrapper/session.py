@@ -268,7 +268,7 @@ class Session(object):
             airfoil_path = os.path.join(current_dir, airfoil)
             shutil.copy(airfoil_path, self.temp_dir.name)
             
-    def _pepare_cases(self):
+    def _prepare_cases(self):
         # If not set, make sure XYZref, Mach and CD0 default to geometry input
         geom_defaults = {'X_cg': self.geometry.point[0],
                          'Y_cg': self.geometry.point[1],
@@ -282,7 +282,7 @@ class Session(object):
                     case.states[key].value = val
 
     def _write_cases(self):
-        self._pepare_cases()
+        self._prepare_cases()
         
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
