@@ -86,8 +86,10 @@ class Case(Input):
 
     CASE_STATES = {'alpha': ('alpha', 0.0, 'deg'),
                    'beta': ('beta', 0.0, 'deg'),
-                   'pb2V': ('pb/2V', 0.0, ''), 'qc2V': ('qc/2V', 0.0, ''),
-                   'rb2V': ('rb/2V', 0.0, ''), 'CL': ('CL', 0.0, ''),
+                   'roll_rate': ('pb/2V', 0.0, ''),
+                   'pitch_rate': ('qc/2V', 0.0, ''),
+                   'yaw_rate': ('rb/2V', 0.0, ''),
+                   'CL': ('CL', 0.0, ''),
                    'cd_p': ('CDo', None, ''),
                    'bank': ('bank', 0.0, 'deg'),
                    'elevation': ('elevation', 0.0, 'deg'),
@@ -138,11 +140,6 @@ class Case(Input):
                     param_str = self.CASE_PARAMETERS[key]
                     self.parameters[param_str].value = value
                 elif key in self.CASE_STATES.keys():
-                    name = self.CASE_STATES[key][0]
-                    if name in self.VALID_CONSTRAINTS:
-                        msg = "{} will be changed on runtime, specify " \
-                              "constraint to set this parameter.".format(name)
-                        print(msg)
                     self.states[key].value = value
                 # if an unknown key-value pair is given,
                 # assume its a control and create a parameter
