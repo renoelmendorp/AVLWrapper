@@ -33,41 +33,18 @@ class Geometry(Input):
                  y_symmetry=Symmetry.none, z_symmetry=Symmetry.none,
                  z_symmetry_plane=0.0, surfaces=None, bodies=None):
         """
-        :param name: aircraft name
-        :type name: str
-
-        :param reference_area: reference planform area for normalisation
-        :type reference_area: float
-
-        :param reference_chord: reference chord for normalisation
-        :type reference_chord: float
-
-        :param reference_span:  reference span for normalisation
-        :type reference_span: float
-
-        :param reference_point: reference point for moment calculations
-        :type reference_point: Point
-
-        :param mach: mach number
-        :type mach: float
-
-        :param cd_p: addition profile drag
-        :type cd_p: float or None
-
-        :param y_symmetry: symmetry normal to y-axis
-        :type y_symmetry: Symmetry
-
-        :param z_symmetry: symmetry normal to z-axis
-        :type z_symmetry: Symmetry
-
-        :param z_symmetry_plane: z-normal symmetry plane offset
-        :type z_symmetry_plane float
-
-        :param surfaces: AVL surfaces
-        :type surfaces: collections.Sequence[Surface]
-
-        :param bodies: AVL bodies
-        :type bodies: collections.Sequence[Body]
+        :param str name: aircraft name
+        :param float reference_area: reference planform area for normalisation
+        :param float reference_chord: reference chord for normalisation
+        :param float reference_span:  reference span for normalisation
+        :param avlwrapper.Point reference_point: reference point for moment calculations
+        :param float mach: mach number
+        :param float cd_p: addition profile drag
+        :param avlwrapper.Symmetry y_symmetry: symmetry normal to y-axis
+        :param avlwrapper.Symmetry z_symmetry: symmetry normal to z-axis
+        :param float z_symmetry_plane: z-normal symmetry plane offset
+        :param typing.Sequence[avlwrapper.Surface] surfaces: AVL surfaces
+        :param typing.Sequence[avlwrapper.Body] bodies: AVL bodies
         """
         self.name = name
         self.area = reference_area
@@ -123,55 +100,26 @@ class Surface(Input):
                  fixed=False, no_loads=False):
 
         """
-        :param name: (unique) surface name
-        :type name: str
-
-        :param n_chordwise: number of chordwise panels
-        :type n_chordwise: int
-
-        :param chord_spacing: chordwise distribution type. See `Spacing` enum
-        :type chord_spacing: Spacing or float
-
-        :param sections: surface sections
-        :type sections: collections.Sequence[Section]
-
-        :param n_spanwise: number of spanwise panels
-        :type n_spanwise: int or None
-
-        :param span_spacing: spanwise distribution type. See `Spacing` enum
-        :type span_spacing: Spacing or float or None
-
-        :param component: component number for surface grouping. for detailed
-            explanation see AVL documentation
-        :type component: int or None
-
-        :param y_duplicate: mirrors the surface with a plane normal to the y-axis
-            see AVL documentation
-        :type y_duplicate: float or None
-
-        :param scaling: x, y, z scaling factors
-        :type scaling: Vector or None
-
-        :param translation: x, y, z translation vector
-        :type translation: Vector or None
-
-        :param angle: surface incidence angle
-        :type angle: float or None
-
-        :param profile_drag: set custom drag polar.
+        :param str name: (unique) surface name
+        :param int n_chordwise: number of chordwise panels
+        :param avlwrapper.Spacing or float chord_spacing: chordwise distribution type. See `Spacing` enum
+        :param typing.Sequence[avlwrapper.Section] sections: surface sections
+        :param int or None n_spanwise: number of spanwise panels
+        :param float or None span_spacing: spanwise distribution type. See `Spacing` enum
+        :param int or None component: component number for surface grouping.
+            for detailed explanation see AVL documentation
+        :param float or None y_duplicate: mirrors the surface with a plane
+            normal to the y-axis see AVL documentation
+        :param Vector or None scaling: x, y, z scaling factors
+        :param Vector or None translation: x, y, z translation vector
+        :param float or None angle: surface incidence angle
+        :param avlwrapper.ProfileDrag or None profile_drag: set custom drag polar.
             See AVL documentation for details.
-        :type profile_drag: ProfileDrag or None
-
-        :param no_wake: disables the kutta-condition on the surface
+        :param bool no_wake: disables the kutta-condition on the surface
             (will shed no wake)
-        :type no_wake: bool
-
-        :param fixed: surface will not be influenced
+        :param bool fixed: surface will not be influenced
             by freestream direction changes (for wind-tunnel walls, etc.)
-        :type fixed: bool
-
-        :param no_loads: surface forces are not included in the totals
-        :type no_loads: bool
+        :param bool no_loads: surface forces are not included in the totals
         """
 
         self.name = name
@@ -251,44 +199,23 @@ class Surface(Input):
 class Section(Input):
     """AVL section"""
     def __init__(self, leading_edge_point, chord, angle=0, n_spanwise=None,
-                 span_spacing=None, airfoil=None, controls=None, design_vars=None,
-                 cl_alpha_scaling=None, profile_drag=None):
+                 span_spacing=None, airfoil=None, controls=None,
+                 design_vars=None, cl_alpha_scaling=None, profile_drag=None):
         """
-        :param leading_edge_point: section leading edge point
-        :type leading_edge_point: Point
-
-        :param chord: the chord length
-        :type chord: float
-
-        :param angle: the section angle. This will rotate the normal vectors
+        :param Point leading_edge_point: section leading edge point
+        :param float chord: the chord length
+        :param float or None angle: the section angle. This will rotate the normal vectors
             of the VLM panels. The panels will remain in stream-wise direction
-        :type angle: float or None
-
-        :param n_spanwise: number of spanwise panels in the next wing segment
-        :type n_spanwise: int or None
-
-        :param span_spacing: panel distribution type. See `Spacing` enum
-        :type span_spacing: Spacing or float or None
-
-        :param airfoil: Airfoil to be used at the section. AVL uses the airfoil
-            camber to calculate the surface normals.
-        :type airfoil: _Airfoil or collections.Sequence[None]
-
-        :param design_vars: perturbation of the local inflow angle by a set of
-            design variables.
-        :type design_vars: collections.Sequence[DesignVar] or
-            collections.Sequence[none]
-
-        :param controls: defines a hinge deflection
-        :type controls: collections.Sequence[Control] or
-            collections.Sequence[None]
-
-        :param cl_alpha_scaling: scales the effective dcl/dalpha of the section
-        :type cl_alpha_scaling: float or None
-
-        :param profile_drag: set custom drag polar.
+        :param int or None n_spanwise: number of spanwise panels in the next wing segment
+        :param avlwrapper.Spacing or float or None span_spacing: panel distribution type. See `Spacing` enum
+        :param _Airfoil or None airfoil: Airfoil to be used at the section.
+            AVL uses the airfoil camber to calculate the surface normals.
+        :param typing.Sequence[DesignVar] or None design_vars: perturbation of
+            the local inflow angle by a set of design variables.
+        :param collections.Sequence[Control] or None controls: defines a hinge deflection
+        :param float or None cl_alpha_scaling: scales the effective dcl/dalpha of the section
+        :param ProfileDrag or None profile_drag: set custom drag polar.
             See AVL documentation for details.
-        :type profile_drag: ProfileDrag or None
         """
 
         self.leading_edge_point = leading_edge_point
@@ -347,26 +274,13 @@ class Body(Input):
     def __init__(self, name, n_body, body_spacing, body_section,
                  y_duplicate=None, scaling=None, translation=None):
         """
-        :param name: body name
-        :type name: str
-
-        :param n_body: number of panels on body
-        :type n_body: int
-
-        :param body_spacing: panel distribution
-        :type body_spacing: Spacing
-
-        :param body_section: body section profile
-        :type body_section: BodyProfile
-
-        :param y_duplicate: mirror the surface normal to the y-axis
-        :type y_duplicate: float
-
-        :param scaling: x, y, z scaling factors
-        :type scaling: Vector or None
-
-        :param translation: x, y, z translation vector
-        :type translation: Vector or None
+        :param str name: body name
+        :param int n_body: number of panels on body
+        :param avlwrapper.Spacing body_spacing: panel distribution
+        :param avlwrapper.BodyProfile body_section: body section profile
+        :param float y_duplicate: mirror the surface normal to the y-axis
+        :param Vector or None scaling: x, y, z scaling factors
+        :param Vector or None translation: x, y, z translation vector
         """
 
         self.name = name
@@ -417,14 +331,9 @@ class NacaAirfoil(_Airfoil):
 
     def __init__(self, naca, x1=None, x2=None):
         """
-        :param naca: NACA-4 digit designation
-        :type naca: str
-
-        :param x1: start of x/c range (optional)
-        :type x1: float or None
-
-        :param x2: end of x/c range (optional)
-        :type x2: float or None
+        :param str naca: NACA-4 digit designation
+        :param float or None x1: start of x/c range (optional)
+        :param float or None x2: end of x/c range (optional)
         """
         super(NacaAirfoil, self).__init__('naca', x1, x2)
         self.naca = naca
@@ -439,17 +348,10 @@ class DataAirfoil(_Airfoil):
 
     def __init__(self, x_data, z_data, x1=None, x2=None):
         """
-        :param x_data: x ordinates
-        :type x_data: collections.Sequence[float]
-
-        :param z_data: z ordinates
-        :type z_data: collections.Sequence[float]
-
-        :param x1: start of x/c range (optional)
-        :type x1: float or None
-
-        :param x2: end of x/c range (optional)
-        :type x2: float or None
+        :param typing.Sequence[float] x_data: x ordinates
+        :param typing.Sequence[float] z_data: z ordinates
+        :param float or None x1: start of x/c range (optional)
+        :param float or None x2: end of x/c range (optional)
         """
         super(DataAirfoil, self).__init__('airfoil', x1, x2)
         self.x_data = x_data
@@ -468,14 +370,9 @@ class FileAirfoil(_Airfoil):
 
     def __init__(self, filename, x1=None, x2=None):
         """
-        :param filename: .dat file name
-        :type filename: str
-
-        :param x1: start of x/c range (optional)
-        :type x1: float or None
-
-        :param x2: end of x/c range (optional)
-        :type x2: float or None
+        :param str filename: .dat file name
+        :param float or None x1: start of x/c range (optional)
+        :param float or None x2: end of x/c range (optional)
         """
         super(FileAirfoil, self).__init__('afile', x1, x2)
         self.filename = filename
@@ -490,14 +387,9 @@ class BodyProfile(_Airfoil):
 
     def __init__(self, filename, x1=None, x2=None):
         """
-        :param filename: .dat file name
-        :type filename: str
-
-        :param x1: start of x/c range (optional)
-        :type x1: float or None
-
-        :param x2: end of x/c range (optional)
-        :type x2: float or None
+        :param str filename: .dat file name
+        :param float or None x1: start of x/c range (optional)
+        :param float or None x2: end of x/c range (optional)
         """
         super(BodyProfile, self).__init__('bfile', x1, x2)
         self.filename = filename
@@ -513,21 +405,12 @@ class Control(Input):
     def __init__(self, name, gain, x_hinge, duplicate_sign,
                  hinge_vector=Vector(0, 0, 0)):
         """
-        :param name: control name
-        :type name: str
-
-        :param gain: control deflection gain
-        :type gain: float
-
-        :param x_hinge: x/c location of the hinge
-        :type x_hinge: float
-
-        :param duplicate_sign: sign of deflection for duplicated surface
-        :type duplicate_sign: int
-
-        :param hinge_vector: hinge_vector. Defaults to Vector(0,0,0) which puts
-                the hinge vector along the hinge
-        :type hinge_vector: Vector
+        :param str name: control name
+        :param float gain: control deflection gain
+        :param float x_hinge: x/c location of the hinge
+        :param int duplicate_sign: sign of deflection for duplicated surface
+        :param Vector hinge_vector: hinge_vector. Defaults to Vector(0,0,0)
+            which puts the hinge vector along the hinge
         """
         self.name = name
         self.gain = gain
@@ -548,11 +431,8 @@ class DesignVar(Input):
 
     def __init__(self, name, weight):
         """
-        :param name: variable name
-        :type name: str
-
-        :param weight: variable weight
-        :type weight: float
+        :param str name: variable name
+        :param float weight: variable weight
         """
         self.name = name
         self.weight = weight
@@ -569,11 +449,8 @@ class ProfileDrag(Input):
 
     def __init__(self, cl, cd):
         """
-        :param cl: lift-coefficients
-        ":type cl: collections.Sequence[float]
-
-        :param cd: drag-coefficients
-        :type cd: collections.Sequence[float]
+        :param typing.Sequence[float] cl: lift-coefficients
+        :param typing.Sequence[float] cd: drag-coefficients
         """
 
         if len(cl) != 3 or len(cd) != 3:
@@ -594,8 +471,7 @@ class FileWrapper(Input):
 
     def __init__(self, filename):
         """
-        :param filename: AVL input file
-        :type filename: str
+        :param str filename: AVL input file
         """
         self.filename = filename
         self._file_content = None

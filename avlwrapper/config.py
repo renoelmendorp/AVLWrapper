@@ -5,7 +5,9 @@ import os.path
 import shutil
 import sys
 
-if not sys.version_info[0] < 3: # Python 3
+IS_PYTHON_3 = sys.version_info[0] >= 3
+
+if IS_PYTHON_3:
     from configparser import ConfigParser
 else:
     from ConfigParser import ConfigParser as _ConfigParser

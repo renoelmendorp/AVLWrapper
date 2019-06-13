@@ -3,12 +3,11 @@
 import os
 import shutil
 import subprocess
-import sys
 
-from avlwrapper.config import default_config
+from avlwrapper.config import default_config, IS_PYTHON_3
 from avlwrapper.output import OutputReader
 
-if not sys.version_info[0] < 3: # Python 3
+if IS_PYTHON_3:
     import tkinter as tk
     from tempfile import TemporaryDirectory
 
@@ -36,15 +35,10 @@ class Parameter(Input):
     """Parameter used in the case definition"""
     def __init__(self, name, value, constraint=None):
         """
-        :param name: Parameter name, if not in Case.CASE_PARAMETERS, it's
+        :param str name: Parameter name, if not in Case.CASE_PARAMETERS, it's
             assumed to by a control name
-        :type name: str
-
-        :param value: Parameter value
-        :type value: float
-
-        :param constraint: Parameter constraint, see Case.VALID_CONSTRAINTS
-        :type constraint: str or None
+        :param float value: Parameter value
+        :param str or None constraint: Parameter constraint, see `Case.VALID_CONSTRAINTS`
         """
         self.name = name
         self.value = value
@@ -80,8 +74,8 @@ class Case(Input):
                        'roll_rate': 'pb/2V', 'pitch_rate': 'qc/2V',
                        'yaw_rate': 'rb/2V'}
 
-    VALID_CONSTRAINTS = ['alpha', 'beta', 'pb/2V', 'qc/2V',
-                         'rb/2V', 'CL', 'CY', 'Cl', 'Cm', 'Cn']
+    VALID_CONSTRAINTS = {'alpha', 'beta', 'pb/2V', 'qc/2V',
+                         'rb/2V', 'CL', 'CY', 'Cl', 'Cm', 'Cn'}
 
     CASE_STATES = {'alpha': ('alpha', 0.0, 'deg'),
                    'beta': ('beta', 0.0, 'deg'),
@@ -116,8 +110,7 @@ class Case(Input):
 
     def __init__(self, name, **kwargs):
         """
-        :param name: case name
-        :type name: str
+        :param str name: case name
 
         :param kwargs: key-value pairs
             keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control
@@ -204,18 +197,11 @@ class Session(object):
     def __init__(self, geometry=None, cases=None,
                  run_keys=None, config=default_config):
         """
-        :param geometry: AVL geometry
-        :type geometry: Geometry
-
-        :param cases: Cases to include in input files
-        :type cases: collections.Sequence[Case] or None
-
-        :param run_keys: (optional) run keys (if not provided, all cases will
+        :param avlwrapper.Geometry geometry: AVL geometry
+        :param typing.Sequence[Case] cases: Cases to include in input files
+        :param str run_keys: (optional) run keys (if not provided, all cases will
             be evaluated
-        :type run_keys: str
-        
-        :param config: (optional) dictionary containing setting
-        :type config: Configuration
+        :param avlwrapper.Configuration config: (optional) dictionary containing setting
         """
 
         self._temp_dir = None

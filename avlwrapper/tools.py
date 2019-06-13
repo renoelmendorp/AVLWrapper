@@ -6,11 +6,8 @@ from avlwrapper import Case
 def create_sweep_cases(base_case, parameters):
     """Creates cases for a parameter sweep
 
-    :param base_case: base Case object
-    :type base_case: Case
-
-    :param parameters: list of a dict with keys: name and values
-    :type parameters: collections.Sequence
+    :param avlwrapper.Case base_case: base Case object
+    :param typing.Sequence parameters: list of a dict with keys: name and values
     """
 
     # ensure input is a list if a dict (only one parameter) is given
@@ -33,17 +30,10 @@ def create_sweep_cases(base_case, parameters):
 def partitioned_cases(cases, n_cases=25):
     """Partitions cases
 
-    :param cases: list of AVL cases to partition
-    :type cases: collections.Sequence
-
-    :param n_cases: (optional) number of cases per partition
-    :type n_cases: int
+    :param typing.Sequence cases: list of AVL cases to partition
+    :param int n_cases: (optional) number of cases per partition
     """
 
-    return _partitioned(cases, n_cases)
-
-
-# From: https://gist.github.com/renoelmendorp/09e397297ffaef2af81b941d2ef4d321
-def _partitioned(l, n):
-    for idx in range(0, len(l), n):
-        yield l[idx:idx + n]
+    # From: https://gist.github.com/renoelmendorp/09e397297ffaef2af81b941d2ef4d321
+    for idx in range(0, len(cases), n_cases):
+        yield cases[idx:idx + n_cases]
