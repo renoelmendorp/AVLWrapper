@@ -27,7 +27,7 @@ else:
 
 
 class Input(object):
-    def create_input(self):
+    def to_string(self):
         raise NotImplementedError
 
 
@@ -49,7 +49,7 @@ class Parameter(Input):
         else:
             self.constraint = constraint
 
-    def create_input(self):
+    def to_string(self):
         return " {0:<12} -> {1:<12} = {2}\n".format(self.name,
                                                     self.constraint,
                                                     self.value)
@@ -62,7 +62,7 @@ class State(Input):
         self.value = value
         self.unit = unit
 
-    def create_input(self):
+    def to_string(self):
         return " {0:<10} = {1:<10} {2}\n".format(self.name,
                                                  self.value,
                                                  self.unit)
@@ -167,7 +167,7 @@ class Case(Input):
                 raise InputError("Invalid constraint on parameter: {0}."
                                  .format(param.name))
 
-    def create_input(self):
+    def to_string(self):
         self._check()
 
         # case header
@@ -176,13 +176,13 @@ class Case(Input):
 
         # write parameters
         for param in self.parameters.values():
-            case_str += param.create_input()
+            case_str += param.to_string()
 
         case_str += "\n"
 
         # write cases
         for state in self.states.values():
-            case_str += state.create_input()
+            case_str += state.to_string()
 
         return case_str
 
@@ -246,7 +246,7 @@ class Session(object):
         self.model_file = self._get_base_name() + '.avl'
         model_path = os.path.join(self.temp_dir.name, self.model_file)
         with open(model_path, 'w') as avl_file:
-            avl_file.write(self.geometry.create_input())
+            avl_file.write(self.geometry.to_string())
 
     def _copy_airfoils(self):
         airfoil_names = self.geometry.get_external_airfoil_names()
@@ -282,7 +282,7 @@ class Session(object):
         with open(case_file_path, 'w') as case_file:
             for idx, case in enumerate(self.cases):
                 case.number = idx + 1  # Case numbers start at 1
-                case_file.write(case.create_input())
+                case_file.write(case.to_string())
 
     def _get_default_run_keys(self):
 

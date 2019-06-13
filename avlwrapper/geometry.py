@@ -65,7 +65,7 @@ class Geometry(Input):
             airfoils += surface.get_external_airfoil_names()
         return list(set(airfoils))
 
-    def create_input(self):
+    def to_string(self):
         geom_str = ("{name}\n#Mach\n{mach}\n" .format(name=self.name,
                                                       mach=self.mach))
         geom_str += ("#iYsym iZsym Zsym\n{iy} {iz} {z_loc}\n"
@@ -82,11 +82,11 @@ class Geometry(Input):
 
         if self.surfaces is not None:
             for surface in self.surfaces:
-                geom_str += surface.create_input()
+                geom_str += surface.to_string()
 
         if self.bodies is not None:
             for body in self.bodies:
-                geom_str += body.create_input()
+                geom_str += body.to_string()
 
         return geom_str
 
@@ -153,13 +153,13 @@ class Surface(Input):
                 airfoil_names.append(section.airfoil.filename)
         return airfoil_names
 
-    def create_input(self):
+    def to_string(self):
 
         surface_str = self._create_header()
         surface_str += self._create_options()
 
         for section in self.sections:
-            surface_str += section.create_input()
+            surface_str += section.to_string()
 
         return surface_str
 
@@ -186,7 +186,7 @@ class Surface(Input):
         if self.angle is not None:
             options_str += "ANGLE\n{0}\n".format(self.angle)
         if self.profile_drag is not None:
-            options_str += self.profile_drag.create_input()
+            options_str += self.profile_drag.to_string()
         if self.no_wake:
             options_str += "NOWAKE\n"
         if self.fixed:
@@ -233,7 +233,7 @@ class Section(Input):
         else:
             self.span_spacing = span_spacing
 
-    def create_input(self):
+    def to_string(self):
 
         section_str = self._create_header()
         section_str += self._create_body()
@@ -253,19 +253,19 @@ class Section(Input):
     def _create_body(self):
         section_str = ""
         if self.airfoil is not None:
-            section_str += self.airfoil.create_input()
+            section_str += self.airfoil.to_string()
         if self.controls is not None:
             for control in self.controls:
                 if control is not None:
-                    section_str += control.create_input()
+                    section_str += control.to_string()
         if self.design_vars is not None:
             for design_var in self.design_vars:
                 if design_var is not None:
-                    section_str += design_var.create_input()
+                    section_str += design_var.to_string()
         if self.cl_alpha_scaling is not None:
             section_str += "CLAF\n{0}\n".format(self.cl_alpha_scaling)
         if self.profile_drag is not None:
-            section_str += self.profile_drag.create_input()
+            section_str += self.profile_drag.to_string()
         return section_str
 
 
@@ -295,10 +295,10 @@ class Body(Input):
         else:
             self.body_spacing = body_spacing
 
-    def create_input(self):
+    def to_string(self):
         body_str = "BODY\n{0}\n#NBody BSpace\n{1} {2}\n".format(
             self.name, self.n_body, self.body_spacing)
-        body_str += self.body_section.create_input()
+        body_str += self.body_section.to_string()
 
         if self.y_duplicate is not None:
             body_str += "YDUPLICATE\n{0}\n".format(self.y_duplicate)
@@ -318,7 +318,7 @@ class _Airfoil(Input):
         self.x1 = x1
         self.x2 = x2
 
-    def create_input(self):
+    def to_string(self):
         if (self.x1 is not None) and (self.x2 is not None):
             return "{0} {1} {2}\n".format(self.af_type.upper(),
                                           self.x1, self.x2)
@@ -338,8 +338,8 @@ class NacaAirfoil(_Airfoil):
         super(NacaAirfoil, self).__init__('naca', x1, x2)
         self.naca = naca
 
-    def create_input(self):
-        header = super(NacaAirfoil, self).create_input()
+    def to_string(self):
+        header = super(NacaAirfoil, self).to_string()
         return header + "{0}\n".format(self.naca)
 
 
@@ -357,8 +357,8 @@ class DataAirfoil(_Airfoil):
         self.x_data = x_data
         self.z_data = z_data
 
-    def create_input(self):
-        header = super(DataAirfoil, self).create_input()
+    def to_string(self):
+        header = super(DataAirfoil, self).to_string()
         data = ""
         for x, z in zip(self.x_data, self.z_data):
             data += "{0} {1}\n".format(x, z)
@@ -377,8 +377,8 @@ class FileAirfoil(_Airfoil):
         super(FileAirfoil, self).__init__('afile', x1, x2)
         self.filename = filename
 
-    def create_input(self):
-        header = super(FileAirfoil, self).create_input()
+    def to_string(self):
+        header = super(FileAirfoil, self).to_string()
         return header + "{0}\n".format(self.filename)
 
 
@@ -394,8 +394,8 @@ class BodyProfile(_Airfoil):
         super(BodyProfile, self).__init__('bfile', x1, x2)
         self.filename = filename
 
-    def create_input(self):
-        header = super(BodyProfile, self).create_input()
+    def to_string(self):
+        header = super(BodyProfile, self).to_string()
         return header + "{}\n".format(self.filename)
 
 
@@ -418,7 +418,7 @@ class Control(Input):
         self.duplicate_sign = duplicate_sign
         self.hinge_vector = hinge_vector
 
-    def create_input(self):
+    def to_string(self):
         header = "CONTROL\n#Name Gain XHinge Vector SgnDup\n"
         body = ("{name} {gain} {hinge} {vec.x} {vec.y} {vec.z} {sgn}\n"
                 .format(name=self.name, gain=self.gain, hinge=self.x_hinge,
@@ -437,7 +437,7 @@ class DesignVar(Input):
         self.name = name
         self.weight = weight
 
-    def create_input(self):
+    def to_string(self):
         return "DESIGN\n#Name Weight\n{0} {1}\n".format(self.name, self.weight)
 
 
@@ -459,7 +459,7 @@ class ProfileDrag(Input):
         self.cl_data = cl
         self.cd_data = cd
 
-    def create_input(self):
+    def to_string(self):
         data_str = "CDCL\n"
         for cl, cd in zip(self.cl_data, self.cd_data):
             data_str += "{0} {1} ".format(cl, cd)
@@ -505,7 +505,7 @@ class FileWrapper(Input):
         except ValueError:
             return 0.0
 
-    def create_input(self):
+    def to_string(self):
         return "".join(self.file_content)
 
     def get_external_airfoil_names(self):
