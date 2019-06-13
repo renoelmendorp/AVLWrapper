@@ -7,7 +7,7 @@ try:
 except ImportError:
     raise ImportError('Please install the enum34 pip package.')
 
-from .session import InputError, Input
+from avlwrapper.session import InputError, Input
 
 Point = namedtuple('Point', 'x y z')
 Vector = namedtuple('Vector', 'x y z')

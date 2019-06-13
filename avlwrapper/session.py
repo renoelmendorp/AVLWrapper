@@ -1,13 +1,12 @@
 """ AVL Wrapper session and input classes
 """
 import os
-import re
 import shutil
 import subprocess
 import sys
 
-from .config import default_config
-from .output import OutputReader
+from avlwrapper.config import default_config
+from avlwrapper.output import OutputReader
 
 if not sys.version_info[0] < 3: # Python 3
     import tkinter as tk
