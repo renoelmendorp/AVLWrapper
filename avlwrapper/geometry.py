@@ -37,11 +37,11 @@ class Geometry(Input):
         :param float reference_area: reference planform area for normalisation
         :param float reference_chord: reference chord for normalisation
         :param float reference_span:  reference span for normalisation
-        :param avlwrapper.Point reference_point: reference point for moment calculations
+        :param Point reference_point: reference point for moment calculations
         :param float mach: mach number
         :param float cd_p: addition profile drag
-        :param avlwrapper.Symmetry y_symmetry: symmetry normal to y-axis
-        :param avlwrapper.Symmetry z_symmetry: symmetry normal to z-axis
+        :param Symmetry y_symmetry: symmetry normal to y-axis
+        :param Symmetry z_symmetry: symmetry normal to z-axis
         :param float z_symmetry_plane: z-normal symmetry plane offset
         :param typing.Sequence[avlwrapper.Surface] surfaces: AVL surfaces
         :param typing.Sequence[avlwrapper.Body] bodies: AVL bodies
@@ -102,10 +102,12 @@ class Surface(Input):
         """
         :param str name: (unique) surface name
         :param int n_chordwise: number of chordwise panels
-        :param avlwrapper.Spacing or float chord_spacing: chordwise distribution type. See `Spacing` enum
+        :param Spacing or float chord_spacing: chordwise distribution
+            type. See `Spacing` enum
         :param typing.Sequence[avlwrapper.Section] sections: surface sections
         :param int or None n_spanwise: number of spanwise panels
-        :param float or None span_spacing: spanwise distribution type. See `Spacing` enum
+        :param Spacing or float or None span_spacing: spanwise
+            distribution type. See `Spacing` enum
         :param int or None component: component number for surface grouping.
             for detailed explanation see AVL documentation
         :param float or None y_duplicate: mirrors the surface with a plane
@@ -113,7 +115,7 @@ class Surface(Input):
         :param Vector or None scaling: x, y, z scaling factors
         :param Vector or None translation: x, y, z translation vector
         :param float or None angle: surface incidence angle
-        :param avlwrapper.ProfileDrag or None profile_drag: set custom drag polar.
+        :param avlwrapper.ProfileDrag or None profile_drag: custom drag polar.
             See AVL documentation for details.
         :param bool no_wake: disables the kutta-condition on the surface
             (will shed no wake)
@@ -204,16 +206,20 @@ class Section(Input):
         """
         :param Point leading_edge_point: section leading edge point
         :param float chord: the chord length
-        :param float or None angle: the section angle. This will rotate the normal vectors
-            of the VLM panels. The panels will remain in stream-wise direction
-        :param int or None n_spanwise: number of spanwise panels in the next wing segment
-        :param avlwrapper.Spacing or float or None span_spacing: panel distribution type. See `Spacing` enum
+        :param float or None angle: the section angle. This will rotate
+            the normal vectors of the VLM panels.
+            The panels will remain in stream-wise direction
+        :param int or None n_spanwise: number of spanwise panels
+            in the next wing segment
+        :param Spacing or float or None span_spacing: panel distribution type.
+            See `Spacing` enum
         :param _Airfoil or None airfoil: Airfoil to be used at the section.
             AVL uses the airfoil camber to calculate the surface normals.
         :param typing.Sequence[DesignVar] or None design_vars: perturbation of
             the local inflow angle by a set of design variables.
-        :param collections.Sequence[Control] or None controls: defines a hinge deflection
-        :param float or None cl_alpha_scaling: scales the effective dcl/dalpha of the section
+        :param typing.Sequence[Control] or None controls: hinge deflection
+        :param float or None cl_alpha_scaling: scales the effective dcl/dalpha
+            of the section
         :param ProfileDrag or None profile_drag: set custom drag polar.
             See AVL documentation for details.
         """

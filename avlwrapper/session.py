@@ -22,6 +22,12 @@ else:
                                          prefix=prefix,
                                          dir=dir)
 
+        def __enter__(self):
+            return self.name
+
+        def __exit__(self, exc, value, tb):
+            self.cleanup()
+
         def cleanup(self):
             shutil.rmtree(self.name)
 
@@ -38,7 +44,8 @@ class Parameter(Input):
         :param str name: Parameter name, if not in Case.CASE_PARAMETERS, it's
             assumed to by a control name
         :param float value: Parameter value
-        :param str or None constraint: Parameter constraint, see `Case.VALID_CONSTRAINTS`
+        :param str or None constraint: Parameter constraint,
+            see `Case.VALID_CONSTRAINTS`
         """
         self.name = name
         self.value = value
@@ -113,7 +120,7 @@ class Case(Input):
         :param str name: case name
 
         :param kwargs: key-value pairs
-            keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control
+            keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control.
             values should be a numeric value or a Parameter object
         """
         self.name = name
@@ -128,10 +135,10 @@ class Case(Input):
                 self.parameters[key] = value
             else:
                 # if the key is an existing case parameter, set the value
-                if key in self.CASE_PARAMETERS.keys():
+                if key in self.CASE_PARAMETERS:
                     param_str = self.CASE_PARAMETERS[key]
                     self.parameters[param_str].value = value
-                elif key in self.CASE_STATES.keys():
+                elif key in self.CASE_STATES:
                     self.states[key].value = value
                 # if an unknown key-value pair is given,
                 # assume its a control and create a parameter
@@ -156,7 +163,7 @@ class Case(Input):
 
     def _check_states(self):
         for key in self.states.keys():
-            if key not in self.CASE_STATES.keys():
+            if key not in self.CASE_STATES:
                 raise InputError("Invalid state variable: {0}"
                                  .format(key))
 
@@ -194,156 +201,129 @@ class Session(object):
                'StabilityDerivatives': 'st', 'BodyAxisDerivatives': 'sb',
                'HingeMoments': 'hm'}
 
-    def __init__(self, geometry=None, cases=None,
-                 run_keys=None, config=default_config):
+    def __init__(self, geometry, cases=None, name=None,
+                 run_cmds=None, config=default_config):
         """
         :param avlwrapper.Geometry geometry: AVL geometry
         :param typing.Sequence[Case] cases: Cases to include in input files
-        :param str run_keys: (optional) run keys (if not provided, all cases will
-            be evaluated
-        :param avlwrapper.Configuration config: (optional) dictionary containing setting
+        :param str name: session name, defaults to geometry name
+        :param str run_cmds: (optional) run keys (if not provided,
+            all cases will be evaluated
+        :param avlwrapper.Configuration config: (optional) dictionary
+            containing setting
         """
 
-        self._temp_dir = None
         self.config = config
 
         self.geometry = geometry
-        self.cases = cases
-        self.run_keys = run_keys
+        self.cases = self._prepare_cases(cases)
+        self.name = name or self.geometry.name
+        self.run_cmds = run_cmds or self.default_run_cmds
 
-        self._calculated = False
         self._results = None
 
-    def _get_base_name(self):
-        return self.geometry.name
-
-    def _check(self):
-        if (self.cases is None) and (self.run_keys is None):
-            raise InputError("Either cases or run keys should be provided.")
-
-    def __del__(self):
-        if self._temp_dir is not None:
-            self._temp_dir.cleanup()
-
-    @property
-    def temp_dir(self):
-        if self._temp_dir is None:
-            self._create_temp_dir()
-        return self._temp_dir
-
-    def _create_temp_dir(self):
-        self._temp_dir = TemporaryDirectory(prefix='avl_')
-
-    def _clean_temp_dir(self):
-        self.temp_dir.cleanup()
-
-    @property
-    def _output(self):
-        return {k: v for k, v in self.OUTPUTS.items()
-                if k.lower() in self.config['output']}
-
-    def _write_geometry(self):
-        self.model_file = self._get_base_name() + '.avl'
-        model_path = os.path.join(self.temp_dir.name, self.model_file)
-        with open(model_path, 'w') as avl_file:
-            avl_file.write(self.geometry.to_string())
-
-    def _copy_airfoils(self):
-        airfoil_names = self.geometry.get_external_airfoil_names()
-        current_dir = os.getcwd()
-        for airfoil in airfoil_names:
-            airfoil_path = os.path.join(current_dir, airfoil)
-            shutil.copy(airfoil_path, self.temp_dir.name)
-            
-    def _prepare_cases(self):
+    def _prepare_cases(self, cases):
         # If not set, make sure XYZref, Mach and CD0 default to geometry input
         geom_defaults = {'X_cg': self.geometry.point[0],
                          'Y_cg': self.geometry.point[1],
                          'Z_cg': self.geometry.point[2],
                          'mach': self.geometry.mach,
                          'cd_p': self.geometry.cd_p}
-        
-        for case in self.cases:
+
+        for idx, case in enumerate(cases):
+            case.number = idx + 1
             for key, val in geom_defaults.items():
                 if case.states[key].value is None:
                     case.states[key].value = val
+        return cases
 
-    def _write_cases(self):
-        self._prepare_cases()
-        
+    @property
+    def model_file(self):
+        return self.name + '.avl'
+
+    @property
+    def case_file(self):
+        return self.name + '.case'
+
+    @property
+    def default_run_cmds(self):
+        cmds = "load {0}\n".format(self.model_file)
+        if self.cases:
+            cmds += self._get_cases_run_cmds(self.cases, self.case_file)
+        else:
+            cmds += "oper\n"
+            cmds += "x\n"
+        cmds += "\nquit\n"
+        return cmds
+
+    def _get_cases_run_cmds(self, cases, case_file):
+        run = "case {0}\n".format(case_file)
+        run += "oper\n"
+        for case in cases:
+            run += "{0}\nx\n".format(case.number)
+            for _, ext in self.requested_output.items():
+                out_file = self._get_output_filename(case, ext)
+                run += "{cmd}\n{file}\n".format(cmd=ext,
+                                                file=out_file)
+        return run
+
+    @property
+    def requested_output(self):
+        requested_outputs = {k for k, v in self.config['output'].items()
+                             if v.lower() == 'yes'}
+        lc_outputs = {k.lower(): (k, v) for k, v in self.OUTPUTS.items()}
+
+        outputs = {}
+        for output in requested_outputs:
+            if output not in lc_outputs:
+                raise InputError("Invalid output: {}".format(output))
+            name, ext = lc_outputs[output]
+            outputs[name] = ext
+        return outputs
+
+    def _write_geometry(self, target_dir):
+        model_path = os.path.join(target_dir, self.model_file)
+        with open(model_path, 'w') as avl_file:
+            avl_file.write(self.geometry.to_string())
+
+    def _copy_airfoils(self, target_dir):
+        airfoil_names = self.geometry.get_external_airfoil_names()
+        current_dir = os.getcwd()
+        for airfoil in airfoil_names:
+            airfoil_path = os.path.join(current_dir, airfoil)
+            shutil.copy(airfoil_path, target_dir)
+
+    def _write_cases(self, target_dir):
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
             raise InputError('Number of cases is larger than '
                              'the supported maximum of 25.')
 
-        self.case_file = self._get_base_name() + '.case'
-        case_file_path = os.path.join(self.temp_dir.name, self.case_file)
+        case_file_path = os.path.join(target_dir, self.case_file)
 
         with open(case_file_path, 'w') as case_file:
-            for idx, case in enumerate(self.cases):
-                case.number = idx + 1  # Case numbers start at 1
+            for case in self.cases:
                 case_file.write(case.to_string())
 
-    def _get_default_run_keys(self):
-
-        run = "load {0}\n".format(self.model_file)
-        run += "case {0}\n".format(self.case_file)
-        run += "oper\n"
-
-        for case in self.cases:
-            run += "{0}\nx\n".format(case.number)
-            for _, ext in self._output.items():
-                out_file = self._get_output_file(case, ext)
-                run += "{cmd}\n{file}\n".format(cmd=ext,
-                                                file=out_file)
-
-        run += "\nquit\n"
-
-        return run
-
-    def _get_output_file(self, case, ext):
-        out_file = "{base}-{case}.{ext}".format(base=self._get_base_name(),
-                                                case=case.number,
-                                                ext=ext)
-        return out_file
-
-    def _read_results(self):
-
-        results = dict()
-        for case in self.cases:
-            results[case.name] = dict()
-            for output, ext in self._output.items():
-                file_name = self._get_output_file(case, ext)
-                file_path = os.path.join(self.temp_dir.name, file_name)
-                reader = OutputReader(file_path=file_path)
-                results[case.name][output] = reader.get_content()
-
+    def run_analysis(self):
+        with TemporaryDirectory(prefix='avl_') as working_dir:
+            self._write_geometry(working_dir)
+            self._copy_airfoils(working_dir)
+            if self.cases is not None:
+                self._write_cases(working_dir)
+            self._run_avl(working_dir, self.run_cmds)
+            results = self._read_results(working_dir)
         return results
 
-    def _run_analysis(self, run_keys=None):
+    def _run_avl(self, working_dir, run_cmds):
+        process = self._get_avl_process(working_dir)
+        process.communicate(input=run_cmds.encode())
+        process.wait()
 
-        if not self._calculated:
-            self._write_geometry()
-            self._copy_airfoils()
-
-            if self.cases is not None:
-                self._write_cases()
-
-            if run_keys is None:
-                if self.run_keys is None:
-                    run_keys = self._get_default_run_keys()
-                else:
-                    run_keys = self.run_keys
-
-            process = self._get_avl_process()
-            process.communicate(input=run_keys.encode())
-            self._calculated = True
-
-    def _get_avl_process(self):
+    def _get_avl_process(self, working_dir):
         stdin = subprocess.PIPE
         stdout = open(os.devnull, 'w') if not self.config[
             'show_stdout'] else None
-        working_dir = self.temp_dir.name
 
         # Buffer size = 0 required for direct stdin/stdout access
         return subprocess.Popen(args=[self.config['avl_bin']],
@@ -352,48 +332,60 @@ class Session(object):
                                 bufsize=0,
                                 cwd=working_dir)
 
-    def get_results(self):
-        if self._results is None:
-            self._run_analysis()
-            self._results = self._read_results()
+    def _read_results(self, target_dir):
+        results = dict()
+        for case in self.cases:
+            results[case.name] = dict()
+            for output, ext in self.requested_output.items():
+                file_name = self._get_output_filename(case, ext)
+                file_path = os.path.join(target_dir, file_name)
+                reader = OutputReader(file_path=file_path)
+                results[case.name][output] = reader.get_content()
+        return results
 
+    def _get_output_filename(self, case, ext):
+        out_file = "{base}-{case}.{ext}".format(base=self.name,
+                                                case=case.number,
+                                                ext=ext)
+        return out_file
+
+    @property
+    def results(self):
+        if not self._results:
+            self._results = self.run_analysis()
         return self._results
 
     def reset(self):
-        self._temp_dir.cleanup()
-        self._temp_dir = None
         self._results = None
-        self._calculated = False
-
-    def _run_with_close_window(self, run):
-        process = self._get_avl_process()
-
-        def open_fn(): process.stdin.write(run.encode())
-
-        def close_fn(): process.stdin.write("\n\nquit\n".encode())
-
-        tk_root = tk.Tk()
-        app = _CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
-        app.mainloop()
 
     def show_geometry(self):
-        self._write_geometry()
-        run = "load {0}\n".format(self.model_file)
-        run += "oper\ng\n"
+        with TemporaryDirectory(prefix='avl_') as working_dir:
+            self._write_geometry(working_dir)
+            cmds = self._show_geometry_cmds
+            avl = self._get_avl_process(working_dir)
+            run_with_close_window(avl, cmds)
 
-        self._run_with_close_window(run)
+    @property
+    def _show_geometry_cmds(self):
+        cmds = "load {0}\n".format(self.model_file)
+        cmds += "oper\ng\n"
+        return cmds
 
     def show_trefftz_plot(self, case_number):
-        self._write_geometry()
-        self._write_cases()
+        with TemporaryDirectory(prefix='avl_') as working_dir:
+            self._write_geometry(working_dir)
+            self._write_cases(working_dir)
+            cmds = self._show_trefftz_case(case_number)
+            avl = self._get_avl_process(working_dir)
+            run_with_close_window(avl, cmds)
 
-        run = "load {}\n".format(self.model_file)
-        run += "case {}\n".format(self.case_file)
-        run += "oper\n"
-        run += "{}\nx\n".format(case_number)
-        run += "t\n"
-
-        self._run_with_close_window(run)
+    def _show_trefftz_case(self, case_number):
+        cmds = "load {}\n".format(self.model_file)
+        cmds += "case {}\n".format(self.case_file)
+        cmds += "oper\n"
+        cmds += "{}\nx\n".format(case_number)
+        cmds += "t\n"
+        return cmds
 
 
 class _CloseWindow(tk.Frame):
@@ -428,3 +420,17 @@ class _CloseWindow(tk.Frame):
 
 class InputError(Exception):
     pass
+
+
+def run_with_close_window(avl, cmds):
+    quit_cmd = '\n\nquit\n'
+    tk_root = tk.Tk()
+
+    def open_fn(): avl.stdin.write(cmds.encode())
+
+    def close_fn():
+        avl.stdin.write(quit_cmd.encode())
+        avl.wait()
+
+    app = _CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
+    app.mainloop()

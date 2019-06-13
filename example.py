@@ -88,9 +88,8 @@ if __name__ == '__main__':
     session.show_trefftz_plot(1)
 
     # get results and write the resulting dict to a JSON-file
-    results = session.get_results()
     with open('out.json', 'w') as f:
-        f.write(json.dumps(results))
+        f.write(json.dumps(session.results))
 
     # generate cases for a parameter sweep
     polar_cases = create_sweep_cases(base_case=cruise_trim_case,
@@ -105,7 +104,7 @@ if __name__ == '__main__':
     results = {}
     for partition in partitions:
         session = Session(geometry=geometry, cases=partition)
-        results.update(session.get_results())
+        results.update(session.results)
 
     with open('out2.json', 'w') as f:
         f.write(json.dumps(results))
