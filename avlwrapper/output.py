@@ -1,9 +1,12 @@
 import os.path
 import re
 
+# Regular expressions used to find tables in the output files
 SURFACE_RE = 'Surface\s+#\s*\d+\s+(.*)'
+VM_SURFACE_RE = 'Surface:\s*\d+\s+(.*)'
 STRIP_RE = 'Strip\s+#\s+(\d+)\s+'
-
+FORCES_HEADER_RE = '(j\s+Yle\s+Chord)'
+VM_HEADER_RE = '(2Y.*\s+Vz)'
 
 class ParseError(Exception):
     pass
@@ -35,6 +38,8 @@ class OutputReader(object):
             result = read_body_derivatives(content)
         elif self.extension == '.hm':
             result = read_hinge_moments(content)
+        elif self.extension == '.vm':
+            result = read_strip_shear_moments(content)
         else:
             print("Unknown output file: {0}".format(self.path))
             result = []
@@ -88,21 +93,25 @@ def process_surface_table(table_content):
 
 
 def read_strip_forces(content):
-    table_content = _get_surface_tables(content)
+    table_content = get_surface_tables(content, SURFACE_RE,
+                                       FORCES_HEADER_RE)
     strip_results = process_surface_tables(table_content)
 
     return strip_results
 
 
-def process_surface_tables(table_content):
+def process_surface_tables(table_content, ignore_first=True, skip_ydup=False):
     strip_results = dict()
     # sort so (YDUP) surfaces are always behind the main surface
     for name in sorted(table_content.keys()):
-        header = extract_header(table_content[name])
+        header = extract_header(table_content[name], ignore_first)
 
         # check for YDUP
         if '(YDUP)' in name:
-            result_name = remove_ydup(name)
+            if skip_ydup:
+                continue
+            else:
+                result_name = remove_ydup(name)
         else:
             result_name = name
             strip_results[result_name] = {key: [] for key in header}
@@ -111,18 +120,18 @@ def process_surface_tables(table_content):
             # Convert to floats
             values = get_line_values(data_line)
             # ignore first column
-            values = values[1:]
+            if ignore_first:
+                values = values[1:]
             for key, value in zip(header, values):
                 strip_results[result_name][key].append(value)
     return strip_results
 
 
-def _get_surface_tables(content):
-    table_lines = split_lines(content, SURFACE_RE)
+def get_surface_tables(content, surface_re, header_re):
+    table_lines = split_lines(content, surface_re)
     table_dict = dict()
     for name, lines in list(table_lines.items()):
-        re_str = '(j\s+Yle\s+Chord)'
-        start_line, end_line = get_table_start_end(lines, re_str)
+        start_line, end_line = get_table_start_end(lines, header_re)
         if start_line is not None and end_line is not None:
             table_dict[name] = lines[start_line:end_line]
     return table_dict
@@ -210,6 +219,14 @@ def read_hinge_moments(content):
     return results
 
 
+def read_strip_shear_moments(content):
+    table_content = get_surface_tables(content, surface_re=VM_SURFACE_RE,
+                                       header_re=VM_HEADER_RE)
+    results = process_surface_tables(table_content, ignore_first=False,
+                                     skip_ydup=True)
+    return results
+
+
 def get_vars(content):
     # Search for "key = value" tuples and store in a dictionary
     result = dict()
@@ -219,26 +236,35 @@ def get_vars(content):
     return result
 
 
-def extract_header(table_content):
+def extract_header(table_content, ignore_first=True):
     # Get headers (might contain spaces, but no double spaces)
     header = re.split('\s{2,}', table_content[0])
     # remove starting and trailing spaces, empty strings and EOL
     header = list(filter(None, [s.strip() for s in header]))
     # ignore first column
-    header = header[1:]
+    if ignore_first:
+        header = header[1:]
     return header
 
 
 def split_lines(lines, re_str):
     splitted = dict()
     name = None
+    next_line_name = False
     for line in lines:
         match = re.search(re_str, line)
         if match is not None:
             name = match.group(1).strip()
-            splitted[name] = [line]
-        elif name is not None:
+            if name:
+                splitted[name] = [line]
+            else:
+                next_line_name = True
+        elif name:
             splitted[name].append(line)
+        elif next_line_name:
+            name = line.strip()
+            splitted[name] = [line]
+            next_line_name = False
 
     return splitted
 

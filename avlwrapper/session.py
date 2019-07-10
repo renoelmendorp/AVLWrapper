@@ -199,7 +199,7 @@ class Session(object):
     OUTPUTS = {'Totals': 'ft', 'SurfaceForces': 'fn',
                'StripForces': 'fs', 'ElementForces': 'fe',
                'StabilityDerivatives': 'st', 'BodyAxisDerivatives': 'sb',
-               'HingeMoments': 'hm'}
+               'HingeMoments': 'hm', 'StripShearMoments': 'vm'}
 
     def __init__(self, geometry, cases=None, name=None,
                  run_cmds=None, config=default_config):
