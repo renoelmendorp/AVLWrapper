@@ -116,7 +116,7 @@ def process_surface_tables(table_content, ignore_first=True, skip_ydup=False):
             result_name = name
             strip_results[result_name] = {key: [] for key in header}
 
-        for data_line in table_content[name][1:-1]:
+        for data_line in table_content[name][1:]:
             # Convert to floats
             values = get_line_values(data_line)
             # ignore first column
