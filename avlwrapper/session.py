@@ -305,15 +305,26 @@ class Session(object):
             for case in self.cases:
                 case_file.write(case.to_string())
 
+    def _write_analysis_files(self, target_dir):
+        self._write_geometry(target_dir)
+        self._copy_airfoils(target_dir)
+        if self.cases is not None:
+            self._write_cases(target_dir)
+
     def run_analysis(self):
         with TemporaryDirectory(prefix='avl_') as working_dir:
-            self._write_geometry(working_dir)
-            self._copy_airfoils(working_dir)
-            if self.cases is not None:
-                self._write_cases(working_dir)
+            self._write_analysis_files(working_dir)
             self._run_avl(working_dir, self.run_cmds)
             results = self._read_results(working_dir)
         return results
+
+    def export_run_files(self, path=None):
+        if path is None:
+            path = os.path.join(os.getcwd(), self.name)
+        if not os.path.exists(path):
+            os.mkdir(path)
+        self._write_analysis_files(path)
+        print("Input files written to: {}".format(path))
 
     def _run_avl(self, working_dir, run_cmds):
         process = self._get_avl_process(working_dir)
