@@ -20,7 +20,7 @@ include_files = ['*.cfg']
 readme_path = os.path.join(current_dir, "README.md")
 try:
     import pypandoc
-    long_description = pypandoc.convert(readme_path, 'rst')
+    long_description = pypandoc.convert_file(readme_path, 'rst')
 except ImportError:
     with open(readme_path, "r") as fh:
         long_description = fh.read()
@@ -30,6 +30,7 @@ setup(
     version="0.1.5",
     url="https://github.com/renoelmendorp/AVLWrapper",
     author="Reno Elmendorp",
+    author_email="reno.elmendorp@icloud.com",
     description="Python interface for MIT AVL (Athena Vortex Lattice)",
     long_description=long_description,
     license="LICENSE",
