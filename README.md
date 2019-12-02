@@ -14,7 +14,12 @@ Not implemented (yet):
 * Time-domain analyses
 
 ## Installation
-The wrapper can be installed directly from Git with pip:
+AVLWrapper can be installed from pip:
+```
+$ pip install avlwrapper
+```
+
+Or can be installed from Git:
 ```
 $ pip install git+https://github.com/renoelmendorp/AVLWrapper@master
 ```

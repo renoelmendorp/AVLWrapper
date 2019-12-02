@@ -2,11 +2,14 @@ import os.path
 import re
 
 # Regular expressions used to find tables in the output files
+KEY_VALUE_RE = '(\S+)\s+=\s+([-\dE.]+)'
 SURFACE_RE = 'Surface\s+#\s*\d+\s+(.*)'
 VM_SURFACE_RE = 'Surface:\s*\d+\s+(.*)'
 STRIP_RE = 'Strip\s+#\s+(\d+)\s+'
 FORCES_HEADER_RE = '(j\s+Yle\s+Chord)'
 VM_HEADER_RE = '(2Y.*\s+Vz)'
+HINGE_RE = '(\w+)\s+([-\dE.]+)'
+
 
 class ParseError(Exception):
     pass
@@ -213,7 +216,7 @@ def read_body_derivatives(content):
 def read_hinge_moments(content):
     results = dict()
     for line in content:
-        match = re.search('(\w+)\s+([-\dE.]+)', line)
+        match = re.search(HINGE_RE, line)
         if match is not None:
             results[match.group(1)] = float(match.group(2))
     return results
@@ -230,7 +233,7 @@ def read_strip_shear_moments(content):
 def get_vars(content):
     # Search for "key = value" tuples and store in a dictionary
     result = dict()
-    for name, value in re.findall('(\S+)\s+=\s+([-\dE.]+)',
+    for name, value in re.findall(KEY_VALUE_RE,
                                   ''.join(content)):
         result[name] = float(value)
     return result
@@ -270,7 +273,21 @@ def split_lines(lines, re_str):
 
 
 def get_line_values(data_line):
-    values = [float(s) for s in re.findall('([-\dE.]+)', data_line)]
+    data_list = re.findall('([-\dE.]+|\*{8})', data_line)
+    values = []
+    raised_warning = False
+    for val in data_list:
+        if val == '*'*8:
+            values.append(float('nan'))
+            if not raised_warning:
+                print("Warning: AVL returned unreadable output\n"
+                      "Most likely the value contained more characters than "
+                      "the AVL output formatter supports:\n",
+                      data_line)
+            raised_warning = True
+        else:
+            values.append(float(val))
+
     return values
 
 
