@@ -201,14 +201,11 @@ class Session(object):
                'StabilityDerivatives': 'st', 'BodyAxisDerivatives': 'sb',
                'HingeMoments': 'hm', 'StripShearMoments': 'vm'}
 
-    def __init__(self, geometry, cases=None, name=None,
-                 run_cmds=None, config=default_config):
+    def __init__(self, geometry, cases=None, name=None, config=default_config):
         """
         :param avlwrapper.Geometry geometry: AVL geometry
         :param typing.Sequence[Case] cases: Cases to include in input files
         :param str name: session name, defaults to geometry name
-        :param str run_cmds: (optional) run keys (if not provided,
-            all cases will be evaluated
         :param avlwrapper.Configuration config: (optional) dictionary
             containing setting
         """
@@ -218,7 +215,6 @@ class Session(object):
         self.geometry = geometry
         self.cases = self._prepare_cases(cases)
         self.name = name or self.geometry.name
-        self.run_cmds = run_cmds or self.default_run_cmds
 
         self._results = None
 
@@ -244,28 +240,6 @@ class Session(object):
     @property
     def case_file(self):
         return self.name + '.case'
-
-    @property
-    def default_run_cmds(self):
-        cmds = "load {0}\n".format(self.model_file)
-        if self.cases:
-            cmds += self._get_cases_run_cmds(self.cases, self.case_file)
-        else:
-            cmds += "oper\n"
-            cmds += "x\n"
-        cmds += "\nquit\n"
-        return cmds
-
-    def _get_cases_run_cmds(self, cases, case_file):
-        run = "case {0}\n".format(case_file)
-        run += "oper\n"
-        for case in cases:
-            run += "{0}\nx\n".format(case.number)
-            for _, ext in self.requested_output.items():
-                out_file = self._get_output_filename(case, ext)
-                run += "{cmd}\n{file}\n".format(cmd=ext,
-                                                file=out_file)
-        return run
 
     @property
     def requested_output(self):
@@ -311,25 +285,44 @@ class Session(object):
         if self.cases is not None:
             self._write_cases(target_dir)
 
-    def run_analysis(self):
+    def run_avl(self, cmds, pre_fn, post_fn):
         with TemporaryDirectory(prefix='avl_') as working_dir:
-            self._write_analysis_files(working_dir)
-            self._run_avl(working_dir, self.run_cmds)
-            results = self._read_results(working_dir)
+            pre_fn(working_dir)
+
+            process = self._get_avl_process(working_dir)
+            process.communicate(input=cmds.encode())
+            process.wait()
+
+            ret = post_fn(working_dir)
+        return ret
+
+    def _get_cases_run_cmds(self, cases, case_file):
+        run = "case {0}\n".format(case_file)
+        run += "oper\n"
+        for case in cases:
+            run += "{0}\nx\n".format(case.number)
+            for _, ext in self.requested_output.items():
+                out_file = self._get_output_filename(case, ext)
+                run += "{cmd}\n{file}\n".format(cmd=ext,
+                                                file=out_file)
+        return run
+
+    @property
+    def run_all_cases_cmds(self):
+        cmds = "load {0}\n".format(self.model_file)
+        if self.cases:
+            cmds += self._get_cases_run_cmds(self.cases, self.case_file)
+        else:
+            cmds += "oper\n"
+            cmds += "x\n"
+        cmds += "\nquit\n"
+        return cmds
+
+    def run_all_cases(self):
+        results = self.run_avl(cmds=self.run_all_cases_cmds,
+                               pre_fn=self._write_analysis_files,
+                               post_fn=self._read_results)
         return results
-
-    def export_run_files(self, path=None):
-        if path is None:
-            path = os.path.join(os.getcwd(), self.name)
-        if not os.path.exists(path):
-            os.mkdir(path)
-        self._write_analysis_files(path)
-        print("Input files written to: {}".format(path))
-
-    def _run_avl(self, working_dir, run_cmds):
-        process = self._get_avl_process(working_dir)
-        process.communicate(input=run_cmds.encode())
-        process.wait()
 
     def _get_avl_process(self, working_dir):
         stdin = subprocess.PIPE
@@ -360,15 +353,6 @@ class Session(object):
                                                 ext=ext)
         return out_file
 
-    @property
-    def results(self):
-        if not self._results:
-            self._results = self.run_analysis()
-        return self._results
-
-    def reset(self):
-        self._results = None
-
     def show_geometry(self):
         with TemporaryDirectory(prefix='avl_') as working_dir:
             self._write_geometry(working_dir)
@@ -397,6 +381,14 @@ class Session(object):
         cmds += "{}\nx\n".format(case_number)
         cmds += "t\n"
         return cmds
+
+    def export_run_files(self, path=None):
+        if path is None:
+            path = os.path.join(os.getcwd(), self.name)
+        if not os.path.exists(path):
+            os.mkdir(path)
+        self._write_analysis_files(path)
+        print("Input files written to: {}".format(path))
 
 
 class _CloseWindow(tk.Frame):
