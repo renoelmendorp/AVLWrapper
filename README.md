@@ -24,10 +24,22 @@ Or can be installed from Git:
 $ pip install git+https://github.com/renoelmendorp/AVLWrapper@master
 ```
 
-AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed.
+### Requirements
 
-By default, the wrapper will check the current directory, the module directory and the system path.
-See [Changing settings](#changing-settings) how to change the executable path to a custom location.
+AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed. If installed on a location in `$PATH` or in the module directory, the wrapper will locate it with the default configuration. See [Changing settings](#changing-settings) how to change the executable path to a custom location.
+
+(optional) Ghostscript is required to save plots as PNG. Ghostscript can be installed on Linux/MacOS with a package manager:
+
+Linux:
+```
+$ apt-get install ghostscript
+```
+MacOS:
+```
+$ brew install ghostscript
+```
+
+For Windows, Ghostscript can be found on the [website](https://www.ghostscript.com).
 
 ## Usage
 For an usage example, see `example.py`

@@ -303,7 +303,7 @@ class Session(object):
             for _, ext in self.requested_output.items():
                 out_file = self._get_output_filename(case, ext)
                 cmds += "{cmd}\n{file}\n".format(cmd=ext,
-                                                file=out_file)
+                                                 file=out_file)
         return cmds
 
     @property
@@ -366,6 +366,23 @@ class Session(object):
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
+    def _get_plot(self, target_dir, plot_name):
+        if 'gs_bin' not in self.config.settings:
+            raise Exception("Ghostscript should be installed"
+                            " and enabled in the configuration file")
+        gs = self.config.settings['gs_bin']
+        in_file = os.path.join(target_dir, 'plot.ps')
+        out_file = os.path.join(os.getcwd(), plot_name + '.png')
+        cmd = [gs, '-dBATCH', '-dNOPAUSE',
+               '-sDEVICE=png16m', '-sOutputFile="{}"'.format(out_file), in_file]
+        subprocess.call(cmd)
+
+    def save_geometry_plot(self):
+        plot_name = self.name + '-geometry'
+        self.run_avl(cmds=self._show_geometry_cmds + "h\n\n\nquit\n",
+                     pre_fn=self._write_geometry,
+                     post_fn=lambda d: self._get_plot(d, plot_name))
+
     @property
     def _show_geometry_cmds(self):
         cmds = "load {0}\n".format(self.model_file)
@@ -379,6 +396,25 @@ class Session(object):
             cmds += self._show_trefftz_case(case_number)
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
+
+    def save_trefftz_plots(self):
+        with TemporaryDirectory(prefix='avl_') as working_dir:
+            self._write_analysis_files(working_dir)
+            avl = self._get_avl_process(working_dir)
+            load_cmds = self._load_files_cmds
+            avl.stdin.write(load_cmds.encode())
+
+            if self.cases:
+                for idx in range(1,len(self.cases)+1):
+                    cmds = self._show_trefftz_case(idx)
+                    cmds += "h\n\n"
+                    avl.stdin.write(cmds.encode())
+            else:
+                cmds = "oper\nx\nt\nh\n\n"
+                avl.stdin.write(cmds.encode())
+            quit_cmds = "\n\nquit\n"
+            avl.stdin.write(quit_cmds.encode())
+            self._get_plot(working_dir, self.name + '-trefftz-%d')  # %d tells Ghostscript to create one file per page
 
     def _show_trefftz_case(self, case_number):
         cmds = "oper\n"

@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 
+import itertools
 import os
 import os.path
 import shutil
 import sys
+
+if os.name == 'nt':
+    import winreg
 
 IS_PYTHON_3 = sys.version_info[0] >= 3
 
@@ -47,8 +51,13 @@ class Configuration(object):
         parser.read(self.filepath)
 
         settings = dict()
-        executable_path = parser['environment']['executable']
-        settings['avl_bin'] = check_bin(executable_path)
+        msg = "AVL not found or not executable, check config file"
+        settings['avl_bin'] = check_bin(bin_path=parser['environment']['executable'],
+                                        error_msg=msg)
+        if parser['environment']['enableghostscript'] == 'yes':
+            msg = "Ghostscript not found or not executable, check config file"
+            settings['gs_bin'] = get_ghostscript(bin_path=parser['environment']['ghostscript'],
+                                                 error_msg=msg)
 
         # show stdout of avl
         show_output = parser['environment']['printoutput']
@@ -74,7 +83,7 @@ class Configuration(object):
         return self.settings[key]
 
 
-def check_bin(bin_path):
+def check_bin(bin_path, error_msg):
     # if absolute path is given, check if exits and executable
     if os.path.isabs(bin_path):
         if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
@@ -101,8 +110,32 @@ def check_bin(bin_path):
                 and os.access(candidate_path, os.X_OK)):
             return candidate_path
 
-    raise FileNotFoundError('AVL not found or not executable, '
-                            'check config file')
+    raise FileNotFoundError(error_msg)
+
+
+def get_ghostscript(bin_path, error_msg):
+    try:
+        return check_bin(bin_path, error_msg)
+    except FileNotFoundError as e:
+        # when running on Windows, use the registry to find Ghostscript
+        if os.name == 'nt':
+            key_path = r'SOFTWARE\Artifex\GPL Ghostscript'
+            with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
+                sub_keys = list(_get_reg_sub_keys(key))
+                gs_dir = winreg.QueryValue(key, sub_keys[-1])
+            gs_bin = os.path.join(gs_dir, 'bin', 'gswin64c.exe')
+            if (os.path.exists(gs_bin)
+                    and os.access(gs_bin, os.X_OK)):
+                return gs_bin
+        raise e
+
+
+def _get_reg_sub_keys(key):
+    for idx in itertools.count():
+        try:
+            yield winreg.EnumKey(key, idx)
+        except OSError:
+            break
 
 
 default_config = Configuration()

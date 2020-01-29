@@ -66,45 +66,40 @@ if __name__ == '__main__':
     # Cases (multiple cases can be defined)
 
     # Case defined by one angle-of-attack
-    cruise_case = Case(name='Cruise', alpha=4.0)
+    alpha_param = Parameter(name='alpha', constraint='CL', value=1.0)
+    cruise_case = Case(name='MyCase',
+                            alpha=alpha_param, mach=0.4)
 
-    # More elaborate case, angle-of-attack of 4deg,
-    # elevator parameter which sets Cm (pitching moment) to 0.0
-    control_param = Parameter(name='elevator', constraint='Cm', value=0.0)
-    cruise_trim_case = Case(name='Trimmed',
-                            alpha=4.0,
-                            elevator=control_param)
-
-    # Landing case; flaps down by 15deg
-    landing_case = Case(name='Landing', alpha=7.0, flap=15.0)
 
     # create session with the geometry object and the cases
-    all_cases = [cruise_case, cruise_trim_case, landing_case]
+    all_cases = [cruise_case]
     session = Session(geometry=geometry, cases=all_cases)
 
     # show geometry with AVL
-    session.show_geometry()
+    session.save_geometry_plot()
 
-    session.show_trefftz_plot(1)
+    session.save_trefftz_plots()
+    # session.export_run_files()
 
+    results = session.run_all_cases()
     # get results and write the resulting dict to a JSON-file
     with open('out.json', 'w') as f:
-        f.write(json.dumps(session.results))
-
-    # generate cases for a parameter sweep
-    polar_cases = create_sweep_cases(base_case=cruise_trim_case,
-                                     parameters=[{'name': 'alpha',
-                                                  'values': list(range(15))},
-                                                 {'name': 'beta',
-                                                  'values': list(range(-5, 6))}])
-
-    # avl only supports 25 cases, use partitioned_cases generator
-    partitions = partitioned_cases(polar_cases)
-
-    results = {}
-    for partition in partitions:
-        session = Session(geometry=geometry, cases=partition)
-        results.update(session.results)
-
-    with open('out2.json', 'w') as f:
         f.write(json.dumps(results))
+    #
+    # # generate cases for a parameter sweep
+    # polar_cases = create_sweep_cases(base_case=cruise_trim_case,
+    #                                  parameters=[{'name': 'alpha',
+    #                                               'values': list(range(15))},
+    #                                              {'name': 'beta',
+    #                                               'values': list(range(-5, 6))}])
+    #
+    # # avl only supports 25 cases, use partitioned_cases generator
+    # partitions = partitioned_cases(polar_cases)
+    #
+    # results = {}
+    # for partition in partitions:
+    #     session = Session(geometry=geometry, cases=partition)
+    #     results.update(session.results)
+    #
+    # with open('out2.json', 'w') as f:
+    #     f.write(json.dumps(results))
