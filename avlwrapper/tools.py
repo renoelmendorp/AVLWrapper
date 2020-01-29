@@ -8,6 +8,15 @@ def create_sweep_cases(base_case, parameters):
 
     :param avlwrapper.Case base_case: base Case object
     :param typing.Sequence parameters: list of a dict with keys: name and values
+
+    Example:
+    ```
+    cases = create_sweep_cases(base_case=cruise_case,
+                               parameters=[{'name':   'alpha',
+                                            'values': list(range(15))},
+                                           {'name':   'beta',
+                                            'values': list(range(-5, 6))}])
+    ```
     """
 
     # ensure input is a list if a dict (only one parameter) is given

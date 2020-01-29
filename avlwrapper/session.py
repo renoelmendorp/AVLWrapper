@@ -296,22 +296,28 @@ class Session(object):
             ret = post_fn(working_dir)
         return ret
 
-    def _get_cases_run_cmds(self, cases, case_file):
-        run = "case {0}\n".format(case_file)
-        run += "oper\n"
+    def _get_cases_run_cmds(self, cases):
+        cmds = "oper\n"
         for case in cases:
-            run += "{0}\nx\n".format(case.number)
+            cmds += "{0}\nx\n".format(case.number)
             for _, ext in self.requested_output.items():
                 out_file = self._get_output_filename(case, ext)
-                run += "{cmd}\n{file}\n".format(cmd=ext,
+                cmds += "{cmd}\n{file}\n".format(cmd=ext,
                                                 file=out_file)
-        return run
+        return cmds
+
+    @property
+    def _load_files_cmds(self):
+        cmds = "load {0}\n".format(self.model_file)
+        if self.cases:
+            cmds += "case {0}\n".format(self.case_file)
+        return cmds
 
     @property
     def run_all_cases_cmds(self):
-        cmds = "load {0}\n".format(self.model_file)
+        cmds = self._load_files_cmds
         if self.cases:
-            cmds += self._get_cases_run_cmds(self.cases, self.case_file)
+            cmds += self._get_cases_run_cmds(self.cases)
         else:
             cmds += "oper\n"
             cmds += "x\n"
@@ -368,16 +374,14 @@ class Session(object):
 
     def show_trefftz_plot(self, case_number):
         with TemporaryDirectory(prefix='avl_') as working_dir:
-            self._write_geometry(working_dir)
-            self._write_cases(working_dir)
-            cmds = self._show_trefftz_case(case_number)
+            self._write_analysis_files(working_dir)
+            cmds = self._load_files_cmds
+            cmds += self._show_trefftz_case(case_number)
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
     def _show_trefftz_case(self, case_number):
-        cmds = "load {}\n".format(self.model_file)
-        cmds += "case {}\n".format(self.case_file)
-        cmds += "oper\n"
+        cmds = "oper\n"
         cmds += "{}\nx\n".format(case_number)
         cmds += "t\n"
         return cmds
