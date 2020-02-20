@@ -320,7 +320,7 @@ class Session(object):
         return cmds
 
     @property
-    def run_all_cases_cmds(self):
+    def _run_all_cases_cmds(self):
         cmds = self._load_files_cmds
         if self.cases:
             cmds += self._get_cases_run_cmds(self.cases)
@@ -331,7 +331,7 @@ class Session(object):
         return cmds
 
     def run_all_cases(self):
-        results = self.run_avl(cmds=self.run_all_cases_cmds,
+        results = self.run_avl(cmds=self._run_all_cases_cmds,
                                pre_fn=self._write_analysis_files,
                                post_fn=self._read_results)
         return results
@@ -389,9 +389,16 @@ class Session(object):
 
     def save_geometry_plot(self):
         plot_name = self.name + '-geometry'
-        return self.run_avl(cmds=self._show_geometry_cmds + "h\n\n\nquit\n",
+        cmds = self._hide_plot_cmds
+        cmds += self._show_geometry_cmds
+        cmds += "h\n\n\nquit\n"
+        return self.run_avl(cmds=cmds,
                             pre_fn=self._write_geometry,
                             post_fn=lambda d: self._get_plot(d, plot_name))
+
+    @property
+    def _hide_plot_cmds(self):
+        return "plop\ng\n\n"
 
     @property
     def _show_geometry_cmds(self):
@@ -403,15 +410,16 @@ class Session(object):
         with TemporaryDirectory(prefix='avl_') as working_dir:
             self._write_analysis_files(working_dir)
             cmds = self._load_files_cmds
-            cmds += self._show_trefftz_case(case_number)
+            cmds += self._show_trefftz_case_cmds(case_number)
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
     def save_trefftz_plots(self):
-        cmds = self._load_files_cmds
+        cmds = self._hide_plot_cmds
+        cmds += self._load_files_cmds
         if self.cases:
             for idx in range(1, len(self.cases) + 1):
-                cmds += self._show_trefftz_case(idx)
+                cmds += self._show_trefftz_case_cmds(idx)
                 cmds += "h\n\n"
         else:
             cmds += "oper\nx\nt\nh\n\n"
@@ -421,7 +429,8 @@ class Session(object):
                             pre_fn=self._write_analysis_files,
                             post_fn=lambda d: self._get_plot(d, self.name + '-trefftz-%d'))
 
-    def _show_trefftz_case(self, case_number):
+    @staticmethod
+    def _show_trefftz_case_cmds(case_number):
         cmds = "oper\n"
         cmds += "{}\nx\n".format(case_number)
         cmds += "t\n"
