@@ -43,6 +43,20 @@ def partitioned_cases(cases, n_cases=25):
     :param int n_cases: (optional) number of cases per partition
     """
 
-    # From: https://gist.github.com/renoelmendorp/09e397297ffaef2af81b941d2ef4d321
     for idx in range(0, len(cases), n_cases):
         yield cases[idx:idx + n_cases]
+
+
+def show_image(image_path, rotate=True):
+    import numpy as np
+    import matplotlib.image as mpimg
+    import matplotlib.pyplot as plt
+
+    image = mpimg.imread(image_path)
+    if rotate:
+        image = np.rot90(image, k=3)
+
+    plt.figure()
+    plt.imshow(image)
+    plt.axis('off')
+    plt.show()
