@@ -219,6 +219,11 @@ class Session(object):
         self._results = None
 
     def _prepare_cases(self, cases):
+
+        # guard for cases=None
+        if cases is None:
+            return []
+
         # If not set, make sure XYZref, Mach and CD0 default to geometry input
         geom_defaults = {'X_cg': self.geometry.point[0],
                          'Y_cg': self.geometry.point[1],
