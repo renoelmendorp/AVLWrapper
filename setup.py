@@ -27,7 +27,7 @@ except ImportError:
 
 setup(
     name="avlwrapper",
-    version="0.1.5",
+    version="0.2.0",
     url="https://github.com/renoelmendorp/AVLWrapper",
     author="Reno Elmendorp",
     author_email="reno.elmendorp@icloud.com",
