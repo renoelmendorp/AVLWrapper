@@ -1,5 +1,6 @@
 """ AVL Wrapper session and input classes
 """
+import glob
 import os
 import shutil
 import subprocess
@@ -381,12 +382,16 @@ class Session(object):
         cmd = [gs, '-dBATCH', '-dNOPAUSE',
                '-sDEVICE=png16m', '-sOutputFile="{}"'.format(out_file), in_file]
         subprocess.call(cmd)
+        if '%d' in out_file:
+            return glob.glob(out_file.replace('%d', '*'))
+        else:
+            return [out_file]
 
     def save_geometry_plot(self):
         plot_name = self.name + '-geometry'
-        self.run_avl(cmds=self._show_geometry_cmds + "h\n\n\nquit\n",
-                     pre_fn=self._write_geometry,
-                     post_fn=lambda d: self._get_plot(d, plot_name))
+        return self.run_avl(cmds=self._show_geometry_cmds + "h\n\n\nquit\n",
+                            pre_fn=self._write_geometry,
+                            post_fn=lambda d: self._get_plot(d, plot_name))
 
     @property
     def _show_geometry_cmds(self):
@@ -403,23 +408,18 @@ class Session(object):
             run_with_close_window(avl, cmds)
 
     def save_trefftz_plots(self):
-        with TemporaryDirectory(prefix='avl_') as working_dir:
-            self._write_analysis_files(working_dir)
-            avl = self._get_avl_process(working_dir)
-            load_cmds = self._load_files_cmds
-            avl.stdin.write(load_cmds.encode())
+        cmds = self._load_files_cmds
+        if self.cases:
+            for idx in range(1, len(self.cases) + 1):
+                cmds += self._show_trefftz_case(idx)
+                cmds += "h\n\n"
+        else:
+            cmds += "oper\nx\nt\nh\n\n"
+        cmds += "\n\nquit\n"
 
-            if self.cases:
-                for idx in range(1,len(self.cases)+1):
-                    cmds = self._show_trefftz_case(idx)
-                    cmds += "h\n\n"
-                    avl.stdin.write(cmds.encode())
-            else:
-                cmds = "oper\nx\nt\nh\n\n"
-                avl.stdin.write(cmds.encode())
-            quit_cmds = "\n\nquit\n"
-            avl.stdin.write(quit_cmds.encode())
-            self._get_plot(working_dir, self.name + '-trefftz-%d')  # %d tells Ghostscript to create one file per page
+        return self.run_avl(cmds=cmds,
+                            pre_fn=self._write_analysis_files,
+                            post_fn=lambda d: self._get_plot(d, self.name + '-trefftz-%d'))
 
     def _show_trefftz_case(self, case_number):
         cmds = "oper\n"
