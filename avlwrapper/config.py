@@ -54,10 +54,11 @@ class Configuration(object):
         msg = "AVL not found or not executable, check config file"
         settings['avl_bin'] = check_bin(bin_path=parser['environment']['executable'],
                                         error_msg=msg)
-        if parser['environment']['enableghostscript'] == 'yes':
-            msg = "Ghostscript not found or not executable, check config file"
-            settings['gs_bin'] = get_ghostscript(bin_path=parser['environment']['ghostscript'],
-                                                 error_msg=msg)
+        gs_path = parser['environment']['ghostscriptexecutable']
+        try:
+            settings['gs_bin'] = get_ghostscript(bin_path=gs_path)
+        except FileNotFoundError:
+            pass
 
         # show stdout of avl
         show_output = parser['environment']['printoutput']
@@ -83,7 +84,7 @@ class Configuration(object):
         return self.settings[key]
 
 
-def check_bin(bin_path, error_msg):
+def check_bin(bin_path, error_msg=""):
     # if absolute path is given, check if exits and executable
     if os.path.isabs(bin_path):
         if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
@@ -113,9 +114,9 @@ def check_bin(bin_path, error_msg):
     raise FileNotFoundError(error_msg)
 
 
-def get_ghostscript(bin_path, error_msg):
+def get_ghostscript(bin_path):
     try:
-        return check_bin(bin_path, error_msg)
+        return check_bin(bin_path)
     except FileNotFoundError as e:
         # when running on Windows, use the registry to find Ghostscript
         if os.name == 'nt':
