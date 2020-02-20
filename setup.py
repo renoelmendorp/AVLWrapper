@@ -28,7 +28,7 @@ except ImportError:
 setup(
     name="avlwrapper",
     version="0.2.0",
-    url="https://github.com/renoelmendorp/AVLWrapper",
+    url="https://gitlab.com/relmendorp/avlwrapper",
     author="Reno Elmendorp",
     author_email="reno.elmendorp@icloud.com",
     description="Python interface for MIT AVL (Athena Vortex Lattice)",
