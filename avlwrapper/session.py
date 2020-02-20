@@ -39,26 +39,26 @@ class Input(object):
 
 class Parameter(Input):
     """Parameter used in the case definition"""
-    def __init__(self, name, value, constraint=None):
+    def __init__(self, name, value, setting=None):
         """
         :param str name: Parameter name, if not in Case.CASE_PARAMETERS, it's
             assumed to by a control name
         :param float value: Parameter value
-        :param str or None constraint: Parameter constraint,
-            see `Case.VALID_CONSTRAINTS`
+        :param str or None setting: Parameter setting,
+            see `Case.VALID_SETTINGS`
         """
         self.name = name
         self.value = value
 
-        # by default, a parameter is not constraint, but set to its own value
-        if constraint is None:
-            self.constraint = name
+        # by default, a parameter is not constraint by as setting, but set to its own value
+        if setting is None:
+            self.setting = name
         else:
-            self.constraint = constraint
+            self.setting = setting
 
     def to_string(self):
         return " {0:<12} -> {1:<12} = {2}\n".format(self.name,
-                                                    self.constraint,
+                                                    self.setting,
                                                     self.value)
 
 
@@ -81,8 +81,8 @@ class Case(Input):
                        'roll_rate': 'pb/2V', 'pitch_rate': 'qc/2V',
                        'yaw_rate': 'rb/2V'}
 
-    VALID_CONSTRAINTS = {'alpha', 'beta', 'pb/2V', 'qc/2V',
-                         'rb/2V', 'CL', 'CY', 'Cl', 'Cm', 'Cn'}
+    VALID_SETTINGS = {'alpha', 'beta', 'pb/2V', 'qc/2V',
+                      'rb/2V', 'CL', 'CY', 'Cl', 'Cm', 'Cn'}
 
     CASE_STATES = {'alpha': ('alpha', 0.0, 'deg'),
                    'beta': ('beta', 0.0, 'deg'),
@@ -150,7 +150,7 @@ class Case(Input):
 
     def _set_default_parameters(self):
         # parameters default to 0.0
-        return {name: Parameter(name=name, constraint=name, value=0.0)
+        return {name: Parameter(name=name, setting=name, value=0.0)
                 for _, name in self.CASE_PARAMETERS.items()}
 
     def _set_default_states(self):
@@ -169,9 +169,9 @@ class Case(Input):
 
     def _check_parameters(self):
         for param in self.parameters.values():
-            if (param.constraint not in self.VALID_CONSTRAINTS
-                    and param.constraint not in self.controls):
-                raise InputError("Invalid constraint on parameter: {0}."
+            if (param.setting not in self.VALID_SETTINGS
+                    and param.setting not in self.controls):
+                raise InputError("Invalid setting on parameter: {0}."
                                  .format(param.name))
 
     def to_string(self):
