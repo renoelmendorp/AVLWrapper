@@ -3,12 +3,14 @@ Python interface for MIT AVL (Athena Vortex Lattice)
 
 ## Description
 Currently implemented:
+
 * Geometry definition
 * Case definition
 * Running operating-point run cases
 * Results parsing
 
 Not implemented (yet):
+
 * Mass definition
 * Eigen-mode analyses
 * Time-domain analyses
@@ -42,7 +44,7 @@ $ brew install ghostscript
 For Windows, Ghostscript can be found on the [website](https://www.ghostscript.com).
 
 ## Usage
-For an usage example, see `example.py`
+For usage examples, see the `example.ipynb` notebook.
 
 ## Changing settings
 To change settings, make a local copy of the settings file:
