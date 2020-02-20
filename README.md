@@ -23,7 +23,7 @@ $ pip install avlwrapper
 
 Or can be installed from Git:
 ```
-$ pip install git+https://github.com/renoelmendorp/AVLWrapper@master
+$ pip install git+https://gitlab.com/relmendorp/avlwrapper.git@master
 ```
 
 ### Requirements
