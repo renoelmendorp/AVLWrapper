@@ -30,7 +30,7 @@ setup(
     version="0.2.0",
     url="https://gitlab.com/relmendorp/avlwrapper",
     author="Reno Elmendorp",
-    author_email="reno.elmendorp@icloud.com",
+    author_email="reno.elmendorp@protonmail.com",
     description="Python interface for MIT AVL (Athena Vortex Lattice)",
     long_description=long_description,
     license="LICENSE",
