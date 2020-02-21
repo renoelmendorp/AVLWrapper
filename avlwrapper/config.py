@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import itertools
 import os
 import os.path
@@ -51,9 +49,12 @@ class Configuration(object):
         parser.read(self.filepath)
 
         settings = dict()
-        msg = "AVL not found or not executable, check config file"
-        settings['avl_bin'] = check_bin(bin_path=parser['environment']['executable'],
-                                        error_msg=msg)
+        avl_path = parser['environment']['executable']
+        try:
+            settings['avl_bin'] = check_bin(bin_path=avl_path)
+        except FileNotFoundError:
+            pass
+        
         gs_path = parser['environment']['ghostscriptexecutable']
         try:
             settings['gs_bin'] = get_ghostscript(bin_path=gs_path)
@@ -82,6 +83,9 @@ class Configuration(object):
 
     def __getitem__(self, key):
         return self.settings[key]
+    
+    def __setitem__(self, key, value):
+        self.settings[key] = value
 
 
 def check_bin(bin_path, error_msg=""):
