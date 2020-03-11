@@ -16,7 +16,7 @@ Not implemented (yet):
 * Time-domain analyses
 
 ## Installation
-AVLWrapper can be installed from pip:
+AVLWrapper can be installed from PyPI:
 ```
 $ pip install avlwrapper
 ```
@@ -28,7 +28,7 @@ $ pip install git+https://gitlab.com/relmendorp/avlwrapper.git@master
 
 ### Requirements
 
-AVL ([link](http://web.mit.edu/drela/Public/web/avl/)) should be installed. If installed on a location in `$PATH` or in the module directory, the wrapper will locate it with the default configuration. See [Changing settings](#changing-settings) how to change the executable path to a custom location.
+AVL ([link](http://web.mit.edu/drela/Public/web/avl/), [repo](https://gitlab.com/relmendorp/avl)) should be installed. If installed on a location in `$PATH` or in the module directory, the wrapper will locate it with the default configuration. See [Changing settings](#changing-settings) how to change the executable path to a custom location.
 
 (optional) Ghostscript is required to save plots as PNG. Ghostscript can be installed on Linux/MacOS with a package manager:
 
