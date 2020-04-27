@@ -2,3 +2,6 @@ v0.2.0:
     - Added plot saving with Ghostscript
     - Renamed Parameter.constraint to Parameter.setting
     - Various small fixes
+
+v0.2.1:
+    - Configuration is now settable during runtime
