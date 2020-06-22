@@ -204,7 +204,7 @@ class Session(object):
 
     def __init__(self, geometry, cases=None, name=None, config=default_config):
         """
-        :param avlwrapper.Geometry geometry: AVL geometry
+        :param avlwrapper.Aircaft geometry: AVL geometry
         :param typing.Sequence[Case] cases: Cases to include in input files
         :param str name: session name, defaults to geometry name
         :param avlwrapper.Configuration config: (optional) dictionary
@@ -226,9 +226,9 @@ class Session(object):
             return []
 
         # If not set, make sure XYZref, Mach and CD0 default to geometry input
-        geom_defaults = {'X_cg': self.geometry.point[0],
-                         'Y_cg': self.geometry.point[1],
-                         'Z_cg': self.geometry.point[2],
+        geom_defaults = {'X_cg': self.geometry.reference_point[0],
+                         'Y_cg': self.geometry.reference_point[1],
+                         'Z_cg': self.geometry.reference_point[2],
                          'mach': self.geometry.mach,
                          'cd_p': self.geometry.cd_p}
 
@@ -264,10 +264,11 @@ class Session(object):
     def _write_geometry(self, target_dir):
         model_path = os.path.join(target_dir, self.model_file)
         with open(model_path, 'w') as avl_file:
-            avl_file.write(self.geometry.to_string())
+            avl_file.write(str(self.geometry))
 
     def _copy_airfoils(self, target_dir):
-        airfoil_names = self.geometry.get_external_airfoil_names()
+        # airfoil_names = self.geometry.get_external_airfoil_names()
+        airfoil_names = self.geometry.external_files
         current_dir = os.getcwd()
         for airfoil in airfoil_names:
             airfoil_path = os.path.join(current_dir, airfoil)
