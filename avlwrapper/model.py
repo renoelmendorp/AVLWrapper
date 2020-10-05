@@ -749,6 +749,13 @@ class Aircraft(ModelInput):
         return list(files)
 
 
+class Geometry(Aircraft):
+
+    def __init__(self, *args, **kwargs):
+        warnings.warn("Use avlwrapper.Aircraft, this class will be removed in a future version", DeprecationWarning)
+        super().__init__(*args, **kwargs)
+
+
 @dataclass
 class Parameter(Input):
     """Parameter used in the case definition
