@@ -1,8 +1,12 @@
 from abc import ABC
-from collections import namedtuple
+from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
+import re
 from typing import Iterable, List, Optional, Union
+import warnings
+
+from avlwrapper import VERSION
 
 
 class InputError(ValueError):
@@ -24,10 +28,12 @@ class Input(ABC):
         """
         raise NotImplementedError
 
+
+class ModelInput(Input, ABC):
     @classmethod
     def parse_lines(cls, lines):
         tokens = cls.tokenize(lines)
-        kwargs = cls.parse_to_kwargs(lines, tokens)
+        kwargs = cls._parse_to_kwargs(lines, tokens)
         return kwargs
 
     @classmethod
@@ -47,11 +53,14 @@ class Input(ABC):
         return tokens
 
     @classmethod
-    def parse_to_kwargs(cls, lines, tokens):
-        kwargs = {}
+    def _parse_to_kwargs(cls, lines, tokens):
+        kwargs = defaultdict(list)
         for (idx, token), (next_idx, _) in zip(tokens[:-1], tokens[1:]):
             data = lines[idx:next_idx]
             param = KEYWORDS[cls][token]
+            if not param.attr_type == AttrType.list and param.attr in kwargs:
+                raise ValueError(f"Only one {token} is allowed")
+
             if param.cls is None:
                 if param.attr_type == AttrType.scalar:
                     value = float(data[1].strip())
@@ -68,14 +77,9 @@ class Input(ABC):
             else:
                 obj = param.cls.from_lines(data)
                 if param.attr_type == AttrType.scalar:
-                    if param.attr in kwargs:
-                        raise ValueError(f"Only one {token} is allowed")
                     kwargs[param.attr] = obj
                 elif param.attr_type == AttrType.list:
-                    if param.attr in kwargs:
-                        kwargs[param.attr].append(obj)
-                    else:
-                        kwargs[param.attr] = [obj]
+                    kwargs[param.attr].append(obj)
                 else:
                     assert False
         return kwargs
@@ -110,10 +114,8 @@ class Symmetry(IntStrEnum):
 # the NacaAirfoil, DataAirfoil, etc. classes to solve the issue with attribute
 # ordering with default values in parent classes.
 # Explanation: https://stackoverflow.com/a/53085935
-
-
 @dataclass
-class Airfoil(Input, ABC):
+class Airfoil(ModelInput, ABC):
     """
     Airfoil object, not to be instantiated directly
 
@@ -265,10 +267,10 @@ class BodyProfile(FileAirfoil):
 
 
 @dataclass
-class Control(Input):
+class Control(ModelInput):
     """
     Adds a control surface hinge point to a section.
-    Note that two adjecent sections need to contain a control to define
+    Note that two adjacent sections need to contain a control to define
     a control surface.
 
     :param str name: control name
@@ -316,7 +318,7 @@ class Control(Input):
 
 
 @dataclass
-class DesignVar(Input):
+class DesignVar(ModelInput):
     """
     Defines a design variable on the section local inflow angle
     Used to solve for a twist distribution
@@ -340,7 +342,7 @@ class DesignVar(Input):
 
 
 @dataclass
-class ProfileDrag(Input):
+class ProfileDrag(ModelInput):
     """
     Specifies a simple profile-drag CD(CL) function.
     The function is parabolic between CL1..CL2 and
@@ -376,7 +378,7 @@ class ProfileDrag(Input):
 
 
 @dataclass
-class Section(Input):
+class Section(ModelInput):
     """
     Wing surface section to be used in a Surface object.
 
@@ -387,8 +389,8 @@ class Section(Input):
         The panels will remain in stream-wise direction
     :param Optional[int] n_spanwise: number of spanwise panels
         in the next wing segment
-    :param Optional[Union[Spacing, float]] span_spacing: panel distribution type
-        See `Spacing` enum
+    :param Optional[Union[Spacing, float]] span_spacing: panel distribution
+        type. See `Spacing` enum
     :param Optional[Airfoil] airfoil: Airfoil to be used at the section.
         AVL uses the airfoil camber to calculate the surface normals.
     :param List[Control] or None controls: hinge deflection
@@ -460,7 +462,7 @@ class Section(Input):
 
 
 @dataclass
-class Surface(Input):
+class Surface(ModelInput):
     """
     Wing surface
 
@@ -586,7 +588,7 @@ class Surface(Input):
 
 
 @dataclass
-class Body(Input):
+class Body(ModelInput):
     """Non-lifting body of revolution
 
     :param str name: body name
@@ -607,7 +609,10 @@ class Body(Input):
     translation: Optional[Vector] = None
 
     def __str__(self):
-        s = f"BODY\n{self.name}\n#NBody BSpace\n" f"{self.n_body} {self.body_spacing}\n"
+        s = (
+            f"BODY\n{self.name}\n#NBody BSpace\n"
+            + f"{self.n_body} {self.body_spacing}\n"
+        )
         s += str(self.body_section)
 
         if self.y_duplicate is not None:
@@ -635,7 +640,7 @@ class Body(Input):
 
 
 @dataclass
-class Aircraft(Input):
+class Aircraft(ModelInput):
     """
     Aircraft object, top level object representing the whole model
 
@@ -670,6 +675,7 @@ class Aircraft(Input):
         return "\n".join(
             [
                 f"{self.name}",
+                f"#AVL input file written by avlwrapper {VERSION}"
                 f"#Mach\n{self.mach}",
                 "#iYsym iZsym Zsym",
                 f"{self.y_symmetry} {self.z_symmetry} {self.z_symmetry_plane}",
@@ -723,14 +729,11 @@ class Aircraft(Input):
         with open(filename, "rt") as fp:
             lines = fp.readlines()
 
-        # remove comments
-        def has_no_comment(line):
-            return not (line.startswith("!") or line.startswith("#"))
-
-        lines = list(filter(has_no_comment, lines))
+        # remove commented lines
+        lines = list(filter(line_has_no_comment, lines))
 
         # remove empty lines
-        lines = list(filter(lambda line: line.strip() != "", lines))
+        lines = list(filter(line_is_empty, lines))
 
         return cls.from_lines(lines)
 
@@ -746,6 +749,277 @@ class Aircraft(Input):
         return list(files)
 
 
+@dataclass
+class Parameter(Input):
+    """Parameter used in the case definition
+    :param str name: Parameter name, if not in Case.CASE_PARAMETERS, it's
+        assumed to by a control name
+    :param float value: Parameter value
+    :param str or None setting: Parameter setting,
+        see `Case.VALID_SETTINGS`
+    """
+
+    name: str
+    value: float
+    setting: Optional[str] = None
+
+    def __post_init__(self):
+        if self.setting is None:
+            self.setting = self.name
+
+    @classmethod
+    def from_lines(cls, lines_in: List[str]):
+        if len(lines_in) != 1:
+            raise InputError(lines_in)
+        name, setting, value_str = (
+            s.strip() for s in multi_split(lines_in[0], "->", "=")
+        )
+        value = float(value_str)
+        return cls(name=name, value=value, setting=setting)
+
+    def __str__(self):
+        return f" {self.name:<12} -> {self.setting:<12} = {self.value}\n"
+
+
+@dataclass
+class State(Input):
+    """State used in the case definition"""
+
+    name: str
+    value: float
+    unit: str = ""
+
+    @classmethod
+    def from_lines(cls, lines_in: List[str]):
+        if len(lines_in) != 1:
+            raise InputError(lines_in)
+        params = multi_split(lines_in[0], "=", " ")
+        name, rest = (s.strip() for s in lines_in[0].split("="))
+        if " " in rest:
+            value, unit = (s.strip() for s in rest.split(" ", maxsplit=1))
+        else:
+            value = rest
+            unit = ""
+        value = float(value)
+        if len(params) == 2:
+            obj = cls(name=name, value=value)
+        else:
+            obj = cls(name=name, value=value, unit=unit)
+        return obj
+
+    def __str__(self):
+        return f" {self.name:<10} = {self.value:<10} {self.unit}\n"
+
+
+class Case(Input):
+    """AVL analysis case containing parameters and states"""
+
+    CASE_PARAMETERS = {
+        "alpha": "alpha",
+        "beta": "beta",
+        "roll_rate": "pb/2V",
+        "pitch_rate": "qc/2V",
+        "yaw_rate": "rb/2V",
+    }
+
+    VALID_SETTINGS = {
+        "alpha",
+        "beta",
+        "pb/2V",
+        "qc/2V",
+        "rb/2V",
+        "CL",
+        "CY",
+        "Cl",
+        "Cm",
+        "Cn",
+    }
+
+    CASE_STATES = {
+        "alpha": ("alpha", 0.0, "deg"),
+        "beta": ("beta", 0.0, "deg"),
+        "roll_rate": ("pb/2V", 0.0, ""),
+        "pitch_rate": ("qc/2V", 0.0, ""),
+        "yaw_rate": ("rb/2V", 0.0, ""),
+        "CL": ("CL", 0.0, ""),
+        "cd_p": ("CDo", None, ""),
+        "bank": ("bank", 0.0, "deg"),
+        "elevation": ("elevation", 0.0, "deg"),
+        "heading": ("heading", 0.0, "deg"),
+        "mach": ("Mach", None, ""),
+        "velocity": ("velocity", 0.0, "m/s"),
+        "density": ("density", 1.225, "kg/m^3"),
+        "gravity": ("grav.acc.", 9.81, "m/s^2"),
+        "turn_rad": ("turn_rad.", 0.0, "m"),
+        "load_fac": ("load_fac.", 0.0, ""),
+        "X_cg": ("X_cg", None, "m"),
+        "Y_cg": ("Y_cg", None, "m"),
+        "Z_cg": ("Z_cg", None, "m"),
+        "mass": ("mass", 1.0, "kg"),
+        "Ixx": ("Ixx", 1.0, "kg-m^2"),
+        "Iyy": ("Iyy", 1.0, "kg-m^2"),
+        "Izz": ("Izz", 1.0, "kg-m^2"),
+        "Ixy": ("Ixy", 0.0, "kg-m^2"),
+        "Iyz": ("Iyz", 0.0, "kg-m^2"),
+        "Izx": ("Izx", 0.0, "kg-m^2"),
+        "visc_CL_a": ("visc CL_a", 0.0, ""),
+        "visc_CL_u": ("visc CL_u", 0.0, ""),
+        "visc_CM_a": ("visc CM_a", 0.0, ""),
+        "visc_CM_u": ("visc CM_u", 0.0, ""),
+    }
+
+    def __init__(self, name, *args, **kwargs):
+        """
+        :param str name: case name
+
+        :param kwargs: key-value pairs
+            keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control.
+            values should be a numeric value or a Parameter object
+        """
+        self.name = name
+        if "number" in kwargs:
+            self.number = kwargs.pop("number")
+        else:
+            self.number = 1
+        self.parameters = self._set_default_parameters()
+        self.states = self._set_default_states()
+
+        self.controls = []
+
+        for arg in args:
+            if isinstance(arg, Parameter):
+                key = self._get_parameter_key_by_name(arg.name)
+                self.parameters[key] = arg
+            elif isinstance(arg, State):
+                key = self._get_state_key_by_name(arg.name)
+                self.states[key] = arg
+
+        for key, value in kwargs.items():
+            # if a parameter object is given, add to the dict
+            if isinstance(value, Parameter):
+                self.parameters[key] = value
+            else:
+                # if the key is an existing case parameter, set the value
+                if key in self.CASE_PARAMETERS:
+                    param_str = self.CASE_PARAMETERS[key]
+                    self.parameters[param_str].value = value
+                elif key in self.CASE_STATES:
+                    self.states[key].value = value
+                # if an unknown key-value pair is given,
+                # assume its a control and create a parameter
+                else:
+                    param_str = key
+                    self.controls.append(key)
+                    self.parameters[param_str] = Parameter(name=param_str, value=value)
+
+    @classmethod
+    def from_lines(cls, lines_in: List[str]):
+        """
+        Create a Case instance from lines in case-file format
+        """
+        # get case number and title
+        re_str = r"(?<=Run case)\s*(\d+)\s*:\s*(\w+)"
+        match = re.search(re_str, lines_in[0], re.IGNORECASE)
+        if match is not None:
+            number = int(match.group(1))
+            name = match.group(2)
+        else:
+            warnings.warn("Case name or number not found, check format")
+            number = 1
+            name = "unknown"
+
+        params = []
+        for line in lines_in[1:]:
+            if "->" in line:
+                param = Parameter.from_lines([line.strip()])
+            else:
+                param = State.from_lines([line.strip()])
+            params.append(param)
+
+        return cls(name, *params, number=number)
+
+    def _set_default_parameters(self):
+        # parameters default to 0.0
+        return {
+            name: Parameter(name=name, setting=name, value=0.0)
+            for _, name in self.CASE_PARAMETERS.items()
+        }
+
+    def _set_default_states(self):
+        return {
+            key: State(name=value[0], value=value[1], unit=value[2])
+            for key, value in self.CASE_STATES.items()
+        }
+
+    def _check_states(self):
+        for key in self.states.keys():
+            if key not in self.CASE_STATES:
+                raise InputError(f"Invalid state variable: {key}")
+
+    def _check_parameters(self):
+        for param in self.parameters.values():
+            if (
+                param.setting not in self.VALID_SETTINGS
+                and param.setting not in self.controls
+            ):
+                raise InputError(f"Invalid setting on parameter: {param.name}.")
+
+    def _check(self):
+        self._check_parameters()
+        self._check_states()
+
+    def _get_parameter_key_by_name(self, name):
+        for key, value in self.CASE_PARAMETERS.items():
+            if value.lower().strip() == name.lower().strip():
+                return key
+        raise LookupError(f"{name} not found")
+
+    def _get_state_key_by_name(self, name):
+        for key, value in self.CASE_STATES.items():
+            if value[0].lower().strip() == name.lower().strip():
+                return key
+        raise LookupError(f"{name} not found")
+
+    def __str__(self):
+        self._check()
+
+        # case header
+        case_str = " " + "-" * 45 + f"\n Run case {self.number:<2}:  {self.name}\n\n"
+
+        # write parameters
+        for param in self.parameters.values():
+            case_str += str(param)
+
+        case_str += "\n"
+
+        # write cases
+        for state in self.states.values():
+            case_str += str(state)
+
+        return case_str
+
+
+def read_case_file(filename):
+    with open(filename, "rt") as fp:
+        lines = fp.readlines()
+
+    # remove empty lines
+    lines = list(filter(line_is_empty, lines))
+
+    # remove separator lines
+    lines = list(filter(lambda line: not line.strip().startswith("-"), lines))
+
+    # split the cases
+    line_idx = [idx for idx, line in enumerate(lines) if "run case" in line.lower()]
+    line_idx.append(len(lines))
+
+    cases = []
+    for start, end in zip(line_idx[:-1], line_idx[1:]):
+        cases.append(Case.from_lines(lines[start:end]))
+
+    return cases
+
+
 def optional_str(obj):
     """Converts to string if object is not None"""
     return str(obj) if obj is not None else ""
@@ -753,6 +1027,26 @@ def optional_str(obj):
 
 def line_to_floats(line):
     return [float(s) for s in line.split()]
+
+
+def multi_split(str_in, *seps):
+    str_lst = [str_in]
+    for sep in seps:
+        new_lst = []
+        for s in str_lst:
+            new_lst.extend(s.split(sep))
+        str_lst = new_lst
+    # remove empty strings
+    str_lst = list(filter(lambda s: s, str_lst))
+    return str_lst
+
+
+def line_is_empty(line):
+    return line.strip() != ""
+
+
+def line_has_no_comment(line):
+    return not (line.startswith("!") or line.startswith("#"))
 
 
 ParameterType = namedtuple("ParameterType", ["cls", "attr", "attr_type"])
@@ -793,18 +1087,10 @@ KEYWORDS = {
     },
     Section: {
         "NACA": PT(NacaAirfoil, "airfoil", AttrType.scalar),
-        "AIRFOIL": PT(NacaAirfoil, "airfoil", AttrType.scalar),
+        "AIRFOIL": PT(DataAirfoil, "airfoil", AttrType.scalar),
         "CLAF": PT(None, "cl_alpha_scaling", AttrType.scalar),
         "CDCL": PT(ProfileDrag, "profile_drag", AttrType.scalar),
         "AFILE": PT(FileAirfoil, "airfoil", AttrType.scalar),
         "CONTROL": PT(Control, "controls", AttrType.list),
     },
 }
-
-
-if __name__ == "__main__":
-    b737 = Aircraft.from_file(r"../examples/b737.avl")
-    from avlwrapper.session import Session
-
-    session = Session(geometry=b737)
-    session.show_geometry()
