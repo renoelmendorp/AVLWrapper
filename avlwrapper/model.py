@@ -43,11 +43,11 @@ class ModelInput(Input, ABC):
         # AVL only considers the first 4 characters to be significant
         short_keys = [key[0:4] for key in keywords]
         # create a list of tuples containing line numbers and keywords
-        tokens = [
-            (idx, keywords[short_keys.index(key)])
-            for idx, line in enumerate(lines)
-            if (key := line.strip()[0:4]) in short_keys
-        ]
+        tokens = []
+        for idx, line in enumerate(lines):
+            key = line.strip()[0:4]
+            if key in short_keys:
+                tokens.append((idx, keywords[short_keys.index(key)]))
         # append end of file
         tokens.append((len(lines), "EOF"))
         return tokens
@@ -750,9 +750,11 @@ class Aircraft(ModelInput):
 
 
 class Geometry(Aircraft):
-
     def __init__(self, *args, **kwargs):
-        warnings.warn("Use avlwrapper.Aircraft, this class will be removed in a future version", DeprecationWarning)
+        warnings.warn(
+            "Use avlwrapper.Aircraft, this class will be removed in a future version",
+            DeprecationWarning,
+        )
         super().__init__(*args, **kwargs)
 
 
