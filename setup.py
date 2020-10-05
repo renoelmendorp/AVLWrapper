@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 
-import sys
 import os.path
 from setuptools import setup, find_packages
+
+from avlwrapper import VERSION as AVL_VERSION
 
 current_dir = os.path.abspath(os.path.dirname(__file__))
 
 # dependencies; currently none
 dependencies = []
 
-# add enum34 package if Python < 3.4
-if sys.version_info < (3, 4):
-    dependencies.append('enum34')
-    
 # include files
 include_files = ['*.cfg']
 
@@ -27,7 +24,7 @@ except ImportError:
 
 setup(
     name="avlwrapper",
-    version="0.2.1",
+    version=AVL_VERSION,
     url="https://gitlab.com/relmendorp/avlwrapper",
     author="Reno Elmendorp",
     author_email="reno.elmendorp@protonmail.com",
