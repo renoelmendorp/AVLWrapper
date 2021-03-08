@@ -83,11 +83,8 @@ class Session(object):
             avl_file.write(str(self.geometry))
 
     def _copy_airfoils(self, target_dir):
-        # airfoil_names = self.geometry.get_external_airfoil_names()
-        airfoil_names = self.geometry.external_files
-        current_dir = os.getcwd()
-        for airfoil in airfoil_names:
-            airfoil_path = os.path.join(current_dir, airfoil)
+        airfoil_paths = self.geometry.external_files
+        for airfoil_path in airfoil_paths:
             shutil.copy(airfoil_path, target_dir)
 
     def _write_cases(self, target_dir):

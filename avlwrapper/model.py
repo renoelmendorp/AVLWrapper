@@ -2,6 +2,7 @@ from abc import ABC
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
+import os
 import re
 from typing import Iterable, List, Optional, Union
 import warnings
@@ -670,6 +671,8 @@ class Aircraft(ModelInput):
     y_symmetry: Symmetry = Symmetry.none
     z_symmetry: Symmetry = Symmetry.none
     z_symmetry_plane: float = 0.0
+    
+    _from_file: Optional[str] = None
 
     def __str__(self):
         return "\n".join(
@@ -689,7 +692,7 @@ class Aircraft(ModelInput):
         )
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def from_lines(cls, lines_in, file_path=None):
         # first 5 or 6 lines contain name and parameters
         keywords = [k[:5] for k in list(KEYWORDS[Aircraft].keys())]
         if any([lines_in[5].startswith(key) for key in keywords]):
@@ -702,6 +705,7 @@ class Aircraft(ModelInput):
         kwargs = {
             "name": header_lines[0].strip(),
             "mach": float(header_lines[1].strip()),
+            "_from_file": file_path
         }
 
         symmetry_params = line_to_floats(header_lines[2])
@@ -725,6 +729,10 @@ class Aircraft(ModelInput):
         """
         Generates Aircraft from AVL input file
         """
+        
+        if not os.path.isabs(filename):
+            filename = os.path.abspath(filename)
+
         # read file to lines
         with open(filename, "rt") as fp:
             lines = fp.readlines()
@@ -735,7 +743,7 @@ class Aircraft(ModelInput):
         # remove empty lines
         lines = list(filter(line_is_empty, lines))
 
-        return cls.from_lines(lines)
+        return cls.from_lines(lines, filename)
 
     @property
     def external_files(self):
@@ -746,7 +754,13 @@ class Aircraft(ModelInput):
                     files.add(section.airfoil.filename)
         for body in self.bodies:
             files.add(body.body_section)
-        return list(files)
+        
+        if self._from_file is None:
+            af_dir = os.getcwd()
+        else:
+            (af_dir, _) = os.path.split(self._from_file)
+        files = [os.path.join(af_dir, file) for file in files]
+        return files
 
 
 class Geometry(Aircraft):
