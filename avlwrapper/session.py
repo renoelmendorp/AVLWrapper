@@ -195,13 +195,16 @@ class Session(object):
             run_with_close_window(avl, cmds)
 
     def _get_plot(self, target_dir, plot_name, file_format, resolution):
+        in_file = os.path.join(target_dir, 'plot.ps')
+        out_file = os.path.join(os.getcwd(), plot_name + '.{}'.format(file_format))
+        if file_format == "ps":
+            shutil.copyfile(src=in_file, dst=out_file)
+            return out_file
         if 'gs_bin' not in self.config.settings:
             raise Exception("Ghostscript should be installed"
                             " and enabled in the configuration file")
         gs = self.config.settings['gs_bin']
         gs_devices = {"pdf": "pdfwrite", "png": "pngalpha", "jpeg": "jpeg"}
-        in_file = os.path.join(target_dir, 'plot.ps')
-        out_file = os.path.join(os.getcwd(), plot_name + '.{}'.format(file_format))
         cmd = [gs, '-dBATCH', '-dNOPAUSE', "-r{}".format(resolution), "-q",
                '-sDEVICE={}'.format(gs_devices[file_format]), '-sOutputFile="{}"'.format(out_file), in_file]
         subprocess.call(cmd)
@@ -210,10 +213,10 @@ class Session(object):
         else:
             return [out_file]
 
-    def save_geometry_plot(self, file_format="png", resolution=300):
+    def save_geometry_plot(self, file_format="ps", resolution=300):
         """ Save the geometry plot to a file.
 
-        :param str fileformat: Either "pdf", "jpeg" or "png"
+        :param str fileformat: Either "pdf", "jpeg", "png", or "ps"
         :param int resolution: Resolution (dpi) of output file
         """
         plot_name = self.name + '-geometry'
@@ -242,10 +245,10 @@ class Session(object):
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
-    def save_trefftz_plots(self, file_format="png", resolution=300):
+    def save_trefftz_plots(self, file_format="ps", resolution=300):
         """ Save the Trefftz plots to a file.
 
-        :param str fileformat: Either "pdf", "jpeg" or "png"
+        :param str fileformat: Either "pdf", "jpeg", "png" or "ps"
         :param int resolution: Resolution (dpi) of output file
         """
         plot_name = self.name + '-trefftz-%d'
