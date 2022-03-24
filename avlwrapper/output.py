@@ -51,7 +51,7 @@ class FileReader:
 
     @staticmethod
     def get_line_values(data_line):
-        data_list = re.findall(r"([-\dE.]+|\*{8})", data_line)
+        data_list = re.findall(r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\*{8})", data_line)
         values = []
         raised_warning = False
         for val in data_list:
@@ -63,7 +63,7 @@ class FileReader:
                         "Most likely the value contained more characters "
                         "than the AVL output formatter supports:\n"
                     )
-                    warnings.warn(msg, data_line)
+                    warnings.warn(msg + data_line)
                 raised_warning = True
             else:
                 values.append(float(val))
@@ -121,9 +121,9 @@ class SurfaceFileReader(FileReader):
             # ignore first column
             line_data = line_data[1:]
 
-            name = re.findall(r"(\D+)(?=\n)", line)[0].strip()
+            name = re.findall(r"[^-\dE.\s+\*](.+)\n", line)[0].strip()
 
-            if len(line_data) != len(header):
+            if len(line_data) < len(header):
                 raise ValueError("Incorrect table format")
 
             # Create results dictionary

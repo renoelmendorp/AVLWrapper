@@ -917,6 +917,16 @@ class Case(Input):
                 key = self._get_state_key_by_name(arg.name)
                 self.states[key] = arg
 
+        self.update(**kwargs)
+
+    def update(self, **kwargs):
+        """
+        Update case parameters and/or states
+
+        :param kwargs: key-value pairs
+            keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control.
+            values should be a numeric value or a Parameter object
+        """
         for key, value in kwargs.items():
             # if a parameter object is given, add to the dict
             if isinstance(value, Parameter):

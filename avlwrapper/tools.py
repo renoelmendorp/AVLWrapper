@@ -1,3 +1,4 @@
+import copy
 from itertools import product
 
 from avlwrapper import Case
@@ -30,7 +31,9 @@ def create_sweep_cases(base_case, parameters):
     cases = []
     for idx, values in enumerate(parameter_values):
         all_params = dict(zip(parameter_names, values))
-        case = Case(name="{}-{}".format(base_case.name, idx), **all_params)
+        case = copy.deepcopy(base_case)
+        case.name = "{}-{}".format(base_case.name, idx)
+        case.update(**all_params)
         cases.append(case)
 
     return cases
