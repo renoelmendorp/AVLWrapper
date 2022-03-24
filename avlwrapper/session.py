@@ -4,12 +4,14 @@ import glob
 import os
 import shutil
 import subprocess
+import logging
 from tempfile import TemporaryDirectory
 
 import tkinter as tk
 
 from avlwrapper import Case, OutputReader, default_config
 
+logger = logging.getLogger(__name__)
 
 class Session(object):
     """Main class which handles AVL runs and input/output"""
@@ -199,7 +201,7 @@ class Session(object):
         out_file = os.path.join(os.getcwd(), plot_name + '.{}'.format(file_format))
         if file_format == "ps":
             shutil.copyfile(src=in_file, dst=out_file)
-            return out_file
+            return [out_file]
         if 'gs_bin' not in self.config.settings:
             raise Exception("Ghostscript should be installed"
                             " and enabled in the configuration file")
@@ -279,7 +281,7 @@ class Session(object):
         if not os.path.exists(path):
             os.mkdir(path)
         self._write_analysis_files(path)
-        print("Input files written to: {}".format(path))
+        logger.info("Input files written to: {}".format(path))
 
 
 class _CloseWindow(tk.Frame):

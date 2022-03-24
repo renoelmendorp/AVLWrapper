@@ -109,7 +109,9 @@ def check_bin(bin_path, error_msg=""):
         return module_bin
 
     # check system path
-    for path in os.environ['PATH'].split(os.pathsep):
+    system_paths = os.environ['PATH'].split(os.pathsep)
+    system_paths.extend(sys.path)
+    for path in system_paths:
         candidate_path = os.path.join(path, bin_path)
         if (os.path.exists(candidate_path)
                 and os.access(candidate_path, os.X_OK)):
