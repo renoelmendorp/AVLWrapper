@@ -622,6 +622,7 @@ class Body(ModelInput):
             s += f"SCALE\n{self.scaling}\n"
         if self.translation is not None:
             s += f"TRANSLATE\n{self.translation}\n"
+        return s
 
     @classmethod
     def from_lines(cls, lines_in):
@@ -753,7 +754,7 @@ class Aircraft(ModelInput):
                 if hasattr(section.airfoil, "filename"):
                     files.add(section.airfoil.filename)
         for body in self.bodies:
-            files.add(body.body_section)
+            files.add(body.body_section.filename)
         
         if self._from_file is None:
             af_dir = os.getcwd()
