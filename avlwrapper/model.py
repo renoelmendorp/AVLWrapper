@@ -365,7 +365,7 @@ class ProfileDrag(ModelInput):
 
     def __str__(self):
         header = "CDCL\n"
-        body = "\n".join([f"{cl} {cd}" for cl, cd in zip(self.cl, self.cd)])
+        body = " ".join([f"{cl} {cd}" for cl, cd in zip(self.cl, self.cd)])
         return header + body + "\n"
 
     @classmethod
