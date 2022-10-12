@@ -60,3 +60,16 @@ from avlwrapper import Configuration
 my_config = Configuration(path_to_file)
 session = Session(..., config=my_config)
 ```
+
+
+## Development
+# Tests
+To run tests in development, first install the development requirement into your environment:
+```shell
+pip install -r requirements-dev.txt
+```
+
+Then, from the source directory of the repo:
+```
+pytest -vv tests
+```

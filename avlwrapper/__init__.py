@@ -1,6 +1,6 @@
 """ AVLWrapper
 """
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 from .config import default_config, Configuration
 from .model import (Aircraft, Case, Control, DataAirfoil, DesignVar,

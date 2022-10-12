@@ -3,6 +3,16 @@ import re
 import warnings
 
 
+# pattern to match a floating point number with:
+# optional leading '+' or '-'
+# at least one value before the decimal point,
+# at least one value after the decimal point,
+# (optionally) an exponent
+#   - with lowercase 'e' or uppercase 'E'
+#   - (optionally) with a '+' or '-' before the power
+FLOATING_POINT_PATTERN = r'[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?'
+
+
 class FileReader:
     def __init__(self, file_path):
         if os.path.exists(file_path):
@@ -18,7 +28,7 @@ class FileReader:
     def get_vars(lines):
         # Search for "key = value" tuples and store in a dictionary
         result = dict()
-        for name, value in re.findall(r"(\S+)\s+=\s+([-\dE.]+)", "".join(lines)):
+        for name, value in re.findall(fr"(\S+)\s+=\s+({FLOATING_POINT_PATTERN})", "".join(lines)):
             result[name] = float(value)
         return result
 
@@ -51,7 +61,7 @@ class FileReader:
 
     @staticmethod
     def get_line_values(data_line):
-        data_list = re.findall(r"([+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\*{8})", data_line)
+        data_list = re.findall(rf"({FLOATING_POINT_PATTERN}|\*{8})", data_line)
         values = []
         raised_warning = False
         for val in data_list:
@@ -147,7 +157,7 @@ class StripFileReader(FileReader):
         table_content = self.get_tables(
             self.lines,
             surface_re=r"Surface\s+#\s*\d+\s+(.*)",
-            header_re=r"(j\s+Yle\s+Chord)",
+            header_re=r"(j\s+.*Chord)",
         )
         strip_results = self.parse_tables(table_content)
         return strip_results

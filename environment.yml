@@ -1,0 +1,10 @@
+name: avlwrapper_devel
+channels:
+  - https://artifactory.int.flyarcher.com/artifactory/api/conda/conda/
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - numpy
+  - matplotlib
+  - pytest

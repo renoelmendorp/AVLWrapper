@@ -1,0 +1,25 @@
+ Geometry-axis derivatives...
+                    axial   vel. u     sideslip vel. v      normal  vel. w
+                  ----------------    ----------------    ----------------
+ x force CX  |    CXu = -0.27412958E-02    CXv = -0.57625584E-08    CXw =  0.94711907E-01
+ y force CY  |    CYu = -0.31548552E-07    CYv = -0.23252405E-01    CYw = -0.62957406E-06
+ z force CZ  |    CZu = -0.33844164E+00    CZv = -0.77299774E-06    CZw = -0.58388014E+01
+ x mom.  Cl  |    Clu =  0.69423810E-01    Clv = -0.80048442E-01    Clw =  0.11977006E+01
+ y mom.  Cm  |    Cmu =  0.39131187E-01    Cmv = -0.93877316E-06    Cmw = -0.39511237E+01
+ z mom.  Cn  |    Cnu = -0.56231895E-03    Cnv =  0.24632262E-02    Cnw =  0.19428214E-01
+                      roll rate  p       pitch rate  q         yaw rate  r
+                  ----------------    ----------------    ----------------
+ x force CX  |    CXp = -0.38856197E-01    CXq = -0.17178600E+00    CXr = -0.11246175E-02
+ y force CY  |    CYp = -0.96352249E-01    CYq = -0.36234478E-05    CYr =  0.23094749E-01
+ z force CZ  |    CZp =  0.23954005E+01    CZq = -0.18038309E+02    CZr = -0.13884680E+00
+ x mom.  Cl  |    Clp = -0.97924799E+00    Clq =  0.37001598E+01    Clr =  0.92277445E-01
+ y mom.  Cm  |    Cmp =  0.16209706E+01    Cmq = -0.58712181E+02    Cmr =  0.16055683E-01
+ z mom.  Cn  |    Cnp = -0.11675087E-01    Cnq = -0.35236109E-01    Cnr = -0.79937084E-02
+                  elevator     d1
+                  ----------------
+ x force CX  |   CXd1 = -0.54488773E-04
+ y force CY  |   CYd1 = -0.38999133E-08
+ z force CZ  |   CZd1 = -0.17402146E-01
+ x mom.  Cl  |   Cld1 =  0.35696668E-02
+ y mom.  Cm  |   Cmd1 = -0.79725087E-01
+ z mom.  Cn  |   Cnd1 = -0.11174649E-04
