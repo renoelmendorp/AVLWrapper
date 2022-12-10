@@ -220,6 +220,9 @@ class DataAirfoil(Airfoil, _DataAirfoil):
     @classmethod
     def from_lines(cls, lines_in):
         x1, x2 = cls.read_x1_x2(lines_in[0])
+        # The first line contains the "AIRFOIL" keyword and optionally x1 and x2 but no x/z data, so it must be removed
+        # prior to parsing the x/z data
+        del lines_in[0]
         xs, zs = zip(
             *[
                 (float(line[0]), float(line[1]))
