@@ -1101,7 +1101,7 @@ PT = ParameterType  # Short-hand
 KEYWORDS = {
     Aircraft: {
         "SURFACE": PT(Surface, "surfaces", AttrType.list),
-        "BODY": PT(Surface, "bodies", AttrType.list),
+        "BODY": PT(Body, "bodies", AttrType.list),
     },
     Surface: {
         "COMPONENT": PT(None, "component", AttrType.scalar),
