@@ -1,3 +1,4 @@
+from configparser import ConfigParser
 import itertools
 import os
 import os.path
@@ -7,27 +8,11 @@ import sys
 if os.name == 'nt':
     import winreg
 
-IS_PYTHON_3 = sys.version_info[0] >= 3
-
-if IS_PYTHON_3:
-    from configparser import ConfigParser
-else:
-    from ConfigParser import ConfigParser as _ConfigParser
-
-    # FileNotFoundError doesn't exist yet in Python 2
-    FileNotFoundError = IOError
-
-    # sub-class built-in ConfigParser to add Python 3-like behaviour
-    class ConfigParser(_ConfigParser):
-        def __getitem__(self, item):
-            return {key: value
-                    for key, value in self.items(item)}
-
 CONFIG_FILE = 'config.cfg'
 MODULE_DIR = os.path.dirname(__file__)
 
 
-class Configuration(object):
+class Configuration:
 
     def __init__(self, filepath=None):
 
