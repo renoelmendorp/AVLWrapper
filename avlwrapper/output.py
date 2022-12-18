@@ -28,7 +28,7 @@ class FileReader:
     def get_vars(lines):
         # Search for "key = value" tuples and store in a dictionary
         result = dict()
-        for name, value in re.findall(fr"(\S+)\s+=\s+({FLOATING_POINT_PATTERN})", "".join(lines)):
+        for name, value in re.findall(fr"(\S+)\s+=\s*({FLOATING_POINT_PATTERN})", "".join(lines)):
             result[name] = float(value)
         return result
 
