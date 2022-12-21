@@ -212,7 +212,7 @@ class ElementFileReader(FileReader):
         data_tables = dict()
         for surface_name, surface_lines in list(surface_tables.items()):
             # tables split by strip
-            strip_tables = self.split_lines(surface_lines, r"Strip\s+#\s+(\d+)\s+")
+            strip_tables = self.split_lines(surface_lines, r"Strip\s+#\s+?(\d+)\s+")
             header_re = r"(I\s+X\s+Y\s+Z)"
             data_tables[surface_name] = dict()
             for strip_name, strip_lines in list(strip_tables.items()):
