@@ -866,8 +866,11 @@ class Case(Input):
         "CL",
         "CY",
         "Cl",
+        "Cl roll mom",
         "Cm",
+        "Cm pitchmom",
         "Cn",
+        "Cn yaw  mom"
     }
 
     CASE_STATES = {
@@ -943,6 +946,8 @@ class Case(Input):
             # if a parameter object is given, add to the dict
             if isinstance(value, Parameter):
                 self.parameters[key] = value
+                if key not in self.CASE_PARAMETERS:
+                    self.controls.append(key)
             else:
                 # if the key is an existing case parameter, set the value
                 if key in self.CASE_PARAMETERS:
@@ -963,7 +968,7 @@ class Case(Input):
         Create a Case instance from lines in case-file format
         """
         # get case number and title
-        re_str = r"(?<=Run case)\s*(\d+)\s*:\s*(\w+)"
+        re_str = r"(?<=Run case)\s*(\d+)\s*:\s*(\S+)"
         match = re.search(re_str, lines_in[0], re.IGNORECASE)
         if match is not None:
             number = int(match.group(1))
@@ -973,15 +978,21 @@ class Case(Input):
             number = 1
             name = "unknown"
 
-        params = []
+        params = {}
+        states = []
         for line in lines_in[1:]:
             if "->" in line:
                 param = Parameter.from_lines([line.strip()])
+                try:
+                    key = cls._get_parameter_key_by_name(param.name)
+                except LookupError:
+                    key = param.name
+                params[key] = param
             else:
-                param = State.from_lines([line.strip()])
-            params.append(param)
+                state = State.from_lines([line.strip()])
+                states.append(state)
 
-        return cls(name, *params, number=number)
+        return cls(name, *states, number=number, **params)
 
     def _set_default_parameters(self):
         # parameters default to 0.0
@@ -1013,14 +1024,16 @@ class Case(Input):
         self._check_parameters()
         self._check_states()
 
-    def _get_parameter_key_by_name(self, name):
-        for key, value in self.CASE_PARAMETERS.items():
+    @classmethod
+    def _get_parameter_key_by_name(cls, name):
+        for key, value in cls.CASE_PARAMETERS.items():
             if value.lower().strip() == name.lower().strip():
                 return key
         raise LookupError(f"{name} not found")
 
-    def _get_state_key_by_name(self, name):
-        for key, value in self.CASE_STATES.items():
+    @classmethod
+    def _get_state_key_by_name(cls, name):
+        for key, value in cls.CASE_STATES.items():
             if value[0].lower().strip() == name.lower().strip():
                 return key
         raise LookupError(f"{name} not found")
