@@ -28,6 +28,30 @@ class Input(ABC):
         from a list of strings from the input file representing the object
         """
         raise NotImplementedError
+    
+    @classmethod
+    def from_file(cls, filename):
+        """
+        Generates Model from AVL input file
+        """
+        
+        if not os.path.isabs(filename):
+            filename = os.path.abspath(filename)
+
+        # read file to lines
+        with open(filename, "rt") as fp:
+            lines = fp.readlines()
+
+        # remove commented lines
+        lines = list(filter(line_has_no_comment, lines))
+
+        # remove empty lines
+        lines = list(filter(line_is_not_empty, lines))
+
+        # remove lines with only "-" and spaces
+        lines = list(filter(line_is_not_separator, lines))
+
+        return cls.from_lines(lines)
 
 
 class ModelInput(Input, ABC):
@@ -696,7 +720,7 @@ class Aircraft(ModelInput):
         )
 
     @classmethod
-    def from_lines(cls, lines_in, file_path=None):
+    def from_lines(cls, lines_in):
         # first 5 or 6 lines contain name and parameters
         keywords = [k[:5] for k in list(KEYWORDS[Aircraft].keys())]
         if any([lines_in[5].startswith(key) for key in keywords]):
@@ -709,7 +733,6 @@ class Aircraft(ModelInput):
         kwargs = {
             "name": header_lines[0].strip(),
             "mach": float(header_lines[1].strip()),
-            "_from_file": file_path
         }
 
         symmetry_params = line_to_floats(header_lines[2])
@@ -730,24 +753,9 @@ class Aircraft(ModelInput):
 
     @classmethod
     def from_file(cls, filename):
-        """
-        Generates Aircraft from AVL input file
-        """
-        
-        if not os.path.isabs(filename):
-            filename = os.path.abspath(filename)
-
-        # read file to lines
-        with open(filename, "rt") as fp:
-            lines = fp.readlines()
-
-        # remove commented lines
-        lines = list(filter(line_has_no_comment, lines))
-
-        # remove empty lines
-        lines = list(filter(line_is_empty, lines))
-
-        return cls.from_lines(lines, filename)
+        obj = super().from_file(filename)
+        obj._from_file = filename
+        return obj
 
     @property
     def external_files(self):
@@ -1041,7 +1049,7 @@ def read_case_file(filename):
         lines = fp.readlines()
 
     # remove empty lines
-    lines = list(filter(line_is_empty, lines))
+    lines = list(filter(line_is_not_empty, lines))
 
     # remove separator lines
     lines = list(filter(lambda line: not line.strip().startswith("-"), lines))
@@ -1078,12 +1086,16 @@ def multi_split(str_in, *seps):
     return str_lst
 
 
-def line_is_empty(line):
+def line_is_not_empty(line):
     return line.strip() != ""
 
 
 def line_has_no_comment(line):
     return not (line.startswith("!") or line.startswith("#"))
+
+
+def line_is_not_separator(line):
+    return set(line.strip()) != {'-'}
 
 
 ParameterType = namedtuple("ParameterType", ["cls", "attr", "attr_type"])
