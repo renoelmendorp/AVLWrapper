@@ -152,21 +152,23 @@ class Session(object):
                                post_fn=self._read_results)
         return results
 
-    def _get_avl_process(self, working_dir):
+    def _get_avl_bin(self):
         # guard for avl not being present on the system.
         # this used to be check at config read, but this allows
         # dynamic setting of the configuration
-        
         if 'avl_bin' not in self.config.settings:
             raise FileNotFoundError("AVL not found or not executable,"
                     " check the configuration file")
+        else:
+            return self.config['avl_bin']
 
+    def _get_avl_process(self, working_dir):
         stdin = subprocess.PIPE
         stdout = open(os.devnull, 'w') if not self.config[
             'show_stdout'] else None
 
         # Buffer size = 0 required for direct stdin/stdout access
-        return subprocess.Popen(args=[self.config['avl_bin']],
+        return subprocess.Popen(args=[self._get_avl_bin()],
                                 stdin=stdin,
                                 stdout=stdout,
                                 bufsize=0,
