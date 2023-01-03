@@ -9,3 +9,27 @@ v0.2.1:
 v0.3.0:
     - New Model class
     - AVLWrapper can now read an AVL input-file
+
+v0.3.1:
+    - Merged bufixes from Dario Isola & Phil Chiu
+
+v0.3.2:
+    - Bugfix for AIRFOIL keyword
+
+v0.3.3:
+    - Lots of bugfixes:
+        - Creating Body while parsing inputfiles
+        - RegEx bug in ElementFileReader (Thomas Greenhill)
+        - Handling large numbers in tables
+        - Handling stripforces with index > 99
+        - Missing values now replaced with NaN instead of messing up the table format
+          (columns were incorrectly shifted in previous versions)
+        - Name labels incorrectly read in SurfaceFileReader
+        - Type errors (mixing up floats & ints) while reading and writing files
+          (AVL usually handles correcntly, but huge gain for consistency)
+    - Case can now be read from input file
+    - Spacing now parsed correctly
+    - Two Spacials can now be added
+    - Spacial can be multiplied/divived with a number
+    - Added _underscore to separate control name from derivative (CYuelevator => CYu_elevator)
+    - Added tests cases
