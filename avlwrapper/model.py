@@ -41,13 +41,13 @@ class Input(ABC):
         from a list of strings from the input file representing the object
         """
         raise NotImplementedError
-    
+
     @classmethod
     def from_file(cls, filename):
         """
         Generates Model from AVL input file
         """
-        
+
         if not os.path.isabs(filename):
             filename = os.path.abspath(filename)
 
@@ -694,10 +694,11 @@ class Body(ModelInput):
         params = line_to_floats(header_lines[2])
         if len(params) != 2:
             InputError(header_lines)
-        kwargs = {"name": name,
-                  "n_body": int(params[0]),
-                  "body_spacing": Spacing.parse(params[1])
-                  }
+        kwargs = {
+            "name": name,
+            "n_body": int(params[0]),
+            "body_spacing": Spacing.parse(params[1]),
+        }
 
         kwargs.update(cls.parse_lines(body_lines))
 
@@ -735,7 +736,7 @@ class Aircraft(ModelInput):
     y_symmetry: Symmetry = Symmetry.none
     z_symmetry: Symmetry = Symmetry.none
     z_symmetry_plane: float = 0.0
-    
+
     _from_file: Optional[str] = None
 
     def __str__(self):
@@ -802,7 +803,7 @@ class Aircraft(ModelInput):
                     files.add(section.airfoil.filename)
         for body in self.bodies:
             files.add(body.body_section.filename)
-        
+
         if self._from_file is None:
             af_dir = os.getcwd()
         else:
@@ -906,7 +907,7 @@ class Case(Input):
         "Cm",
         "Cm pitchmom",
         "Cn",
-        "Cn yaw  mom"
+        "Cn yaw  mom",
     }
 
     CASE_STATES = {
@@ -1144,7 +1145,7 @@ def line_has_no_comment(line):
 
 
 def line_is_not_separator(line):
-    return set(line.strip()) != {'-'}
+    return set(line.strip()) != {"-"}
 
 
 ParameterType = namedtuple("ParameterType", ["cls", "attr", "attr_type"])

@@ -1,8 +1,6 @@
 import copy
 from itertools import product
 
-from avlwrapper import Case
-
 
 def create_sweep_cases(base_case, parameters):
     """Creates cases for a parameter sweep
@@ -24,9 +22,8 @@ def create_sweep_cases(base_case, parameters):
     if isinstance(parameters, dict):
         parameters = [parameters]
 
-    parameter_names = [p['name'] for p in parameters]
-    parameter_values = product(*[p['values']
-                                 for p in parameters])
+    parameter_names = [p["name"] for p in parameters]
+    parameter_values = product(*[p["values"] for p in parameters])
 
     cases = []
     for idx, values in enumerate(parameter_values):
@@ -47,7 +44,7 @@ def partitioned_cases(cases, n_cases=25):
     """
 
     for idx in range(0, len(cases), n_cases):
-        yield cases[idx:idx + n_cases]
+        yield cases[idx : idx + n_cases]
 
 
 def show_image(image_path, rotate=True):
@@ -61,5 +58,5 @@ def show_image(image_path, rotate=True):
 
     plt.figure()
     plt.imshow(image)
-    plt.axis('off')
+    plt.axis("off")
     plt.show()

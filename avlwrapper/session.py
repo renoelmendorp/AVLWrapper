@@ -13,10 +13,17 @@ from avlwrapper import Case, OutputReader, default_config, logger
 
 class Session(object):
     """Main class which handles AVL runs and input/output"""
-    OUTPUTS = {'Totals': 'ft', 'SurfaceForces': 'fn',
-               'StripForces': 'fs', 'ElementForces': 'fe',
-               'StabilityDerivatives': 'st', 'BodyAxisDerivatives': 'sb',
-               'HingeMoments': 'hm', 'StripShearMoments': 'vm'}
+
+    OUTPUTS = {
+        "Totals": "ft",
+        "SurfaceForces": "fn",
+        "StripForces": "fs",
+        "ElementForces": "fe",
+        "StabilityDerivatives": "st",
+        "BodyAxisDerivatives": "sb",
+        "HingeMoments": "hm",
+        "StripShearMoments": "vm",
+    }
 
     def __init__(self, geometry, cases=None, name=None, config=default_config):
         """
@@ -42,11 +49,13 @@ class Session(object):
             return []
 
         # If not set, make sure XYZref, Mach and CD0 default to geometry input
-        geom_defaults = {'X_cg': self.geometry.reference_point[0],
-                         'Y_cg': self.geometry.reference_point[1],
-                         'Z_cg': self.geometry.reference_point[2],
-                         'mach': self.geometry.mach,
-                         'cd_p': self.geometry.cd_p}
+        geom_defaults = {
+            "X_cg": self.geometry.reference_point[0],
+            "Y_cg": self.geometry.reference_point[1],
+            "Z_cg": self.geometry.reference_point[2],
+            "mach": self.geometry.mach,
+            "cd_p": self.geometry.cd_p,
+        }
 
         for idx, case in enumerate(cases):
             case.number = idx + 1
@@ -57,16 +66,17 @@ class Session(object):
 
     @property
     def model_file(self):
-        return self.name + '.avl'
+        return self.name + ".avl"
 
     @property
     def case_file(self):
-        return self.name + '.case'
+        return self.name + ".case"
 
     @property
     def requested_output(self):
-        requested_outputs = {k for k, v in self.config['output'].items()
-                             if v.lower() == 'yes'}
+        requested_outputs = {
+            k for k, v in self.config["output"].items() if v.lower() == "yes"
+        }
         lc_outputs = {k.lower(): (k, v) for k, v in self.OUTPUTS.items()}
 
         outputs = {}
@@ -79,7 +89,7 @@ class Session(object):
 
     def _write_geometry(self, target_dir):
         model_path = os.path.join(target_dir, self.model_file)
-        with open(model_path, 'w') as avl_file:
+        with open(model_path, "w") as avl_file:
             avl_file.write(str(self.geometry))
 
     def _copy_airfoils(self, target_dir):
@@ -90,12 +100,13 @@ class Session(object):
     def _write_cases(self, target_dir):
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
-            raise InputError('Number of cases is larger than '
-                             'the supported maximum of 25.')
+            raise InputError(
+                "Number of cases is larger than " "the supported maximum of 25."
+            )
 
         case_file_path = os.path.join(target_dir, self.case_file)
 
-        with open(case_file_path, 'w') as case_file:
+        with open(case_file_path, "w") as case_file:
             for case in self.cases:
                 case_file.write(str(case))
 
@@ -106,7 +117,7 @@ class Session(object):
             self._write_cases(target_dir)
 
     def run_avl(self, cmds, pre_fn, post_fn):
-        with TemporaryDirectory(prefix='avl_') as working_dir:
+        with TemporaryDirectory(prefix="avl_") as working_dir:
             pre_fn(working_dir)
 
             process = self._get_avl_process(working_dir)
@@ -122,8 +133,7 @@ class Session(object):
             cmds += "{0}\nx\n".format(case.number)
             for _, ext in self.requested_output.items():
                 out_file = self._get_output_filename(case, ext)
-                cmds += "{cmd}\n{file}\n".format(cmd=ext,
-                                                 file=out_file)
+                cmds += "{cmd}\n{file}\n".format(cmd=ext, file=out_file)
         return cmds
 
     @property
@@ -145,32 +155,36 @@ class Session(object):
         return cmds
 
     def run_all_cases(self):
-        results = self.run_avl(cmds=self._run_all_cases_cmds,
-                               pre_fn=self._write_analysis_files,
-                               post_fn=self._read_results)
+        results = self.run_avl(
+            cmds=self._run_all_cases_cmds,
+            pre_fn=self._write_analysis_files,
+            post_fn=self._read_results,
+        )
         return results
 
     def _get_avl_bin(self):
         # guard for avl not being present on the system.
         # this used to be check at config read, but this allows
         # dynamic setting of the configuration
-        if 'avl_bin' not in self.config.settings:
-            raise FileNotFoundError("AVL not found or not executable,"
-                    " check the configuration file")
+        if "avl_bin" not in self.config.settings:
+            raise FileNotFoundError(
+                "AVL not found or not executable," " check the configuration file"
+            )
         else:
-            return self.config['avl_bin']
+            return self.config["avl_bin"]
 
     def _get_avl_process(self, working_dir):
         stdin = subprocess.PIPE
-        stdout = open(os.devnull, 'w') if not self.config[
-            'show_stdout'] else None
+        stdout = open(os.devnull, "w") if not self.config["show_stdout"] else None
 
         # Buffer size = 0 required for direct stdin/stdout access
-        return subprocess.Popen(args=[self._get_avl_bin()],
-                                stdin=stdin,
-                                stdout=stdout,
-                                bufsize=0,
-                                cwd=working_dir)
+        return subprocess.Popen(
+            args=[self._get_avl_bin()],
+            stdin=stdin,
+            stdout=stdout,
+            bufsize=0,
+            cwd=working_dir,
+        )
 
     def _read_results(self, target_dir):
         results = dict()
@@ -184,50 +198,62 @@ class Session(object):
         return results
 
     def _get_output_filename(self, case, ext):
-        out_file = "{base}-{case}.{ext}".format(base=self.name,
-                                                case=case.number,
-                                                ext=ext)
+        out_file = "{base}-{case}.{ext}".format(
+            base=self.name, case=case.number, ext=ext
+        )
         return out_file
 
     def show_geometry(self):
-        with TemporaryDirectory(prefix='avl_') as working_dir:
+        with TemporaryDirectory(prefix="avl_") as working_dir:
             self._write_geometry(working_dir)
             cmds = self._show_geometry_cmds
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
     def _get_plot(self, target_dir, plot_name, file_format, resolution):
-        in_file = os.path.join(target_dir, 'plot.ps')
-        out_file = os.path.join(os.getcwd(), plot_name + '.{}'.format(file_format))
+        in_file = os.path.join(target_dir, "plot.ps")
+        out_file = os.path.join(os.getcwd(), plot_name + ".{}".format(file_format))
         if file_format == "ps":
             shutil.copyfile(src=in_file, dst=out_file)
             return [out_file]
-        if 'gs_bin' not in self.config.settings:
-            raise Exception("Ghostscript should be installed"
-                            " and enabled in the configuration file")
-        gs = self.config.settings['gs_bin']
+        if "gs_bin" not in self.config.settings:
+            raise Exception(
+                "Ghostscript should be installed"
+                " and enabled in the configuration file"
+            )
+        gs = self.config.settings["gs_bin"]
         gs_devices = {"pdf": "pdfwrite", "png": "pngalpha", "jpeg": "jpeg"}
-        cmd = [gs, '-dBATCH', '-dNOPAUSE', "-r{}".format(resolution), "-q",
-               '-sDEVICE={}'.format(gs_devices[file_format]), '-sOutputFile="{}"'.format(out_file), in_file]
+        cmd = [
+            gs,
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-r{}".format(resolution),
+            "-q",
+            "-sDEVICE={}".format(gs_devices[file_format]),
+            '-sOutputFile="{}"'.format(out_file),
+            in_file,
+        ]
         subprocess.call(cmd)
-        if '%d' in out_file:
-            return glob.glob(out_file.replace('%d', '*'))
+        if "%d" in out_file:
+            return glob.glob(out_file.replace("%d", "*"))
         else:
             return [out_file]
 
     def save_geometry_plot(self, file_format="ps", resolution=300):
-        """ Save the geometry plot to a file.
+        """Save the geometry plot to a file.
 
-        :param str fileformat: Either "pdf", "jpeg", "png", or "ps"
+        :param str file_format: Either "pdf", "jpeg", "png", or "ps"
         :param int resolution: Resolution (dpi) of output file
         """
-        plot_name = self.name + '-geometry'
+        plot_name = self.name + "-geometry"
         cmds = self._hide_plot_cmds
         cmds += self._show_geometry_cmds
         cmds += "h\n\n\nquit\n"
-        return self.run_avl(cmds=cmds,
-                            pre_fn=self._write_geometry,
-                            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution))
+        return self.run_avl(
+            cmds=cmds,
+            pre_fn=self._write_geometry,
+            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution),
+        )
 
     @property
     def _hide_plot_cmds(self):
@@ -240,7 +266,7 @@ class Session(object):
         return cmds
 
     def show_trefftz_plot(self, case_number):
-        with TemporaryDirectory(prefix='avl_') as working_dir:
+        with TemporaryDirectory(prefix="avl_") as working_dir:
             self._write_analysis_files(working_dir)
             cmds = self._load_files_cmds
             cmds += self._show_trefftz_case_cmds(case_number)
@@ -248,12 +274,12 @@ class Session(object):
             run_with_close_window(avl, cmds)
 
     def save_trefftz_plots(self, file_format="ps", resolution=300):
-        """ Save the Trefftz plots to a file.
+        """Save the Trefftz plots to a file.
 
-        :param str fileformat: Either "pdf", "jpeg", "png" or "ps"
+        :param str file_format: Either "pdf", "jpeg", "png" or "ps"
         :param int resolution: Resolution (dpi) of output file
         """
-        plot_name = self.name + '-trefftz-%d'
+        plot_name = self.name + "-trefftz-%d"
         cmds = self._hide_plot_cmds
         cmds += self._load_files_cmds
         if self.cases:
@@ -264,9 +290,11 @@ class Session(object):
             cmds += "oper\nx\nt\nh\n\n"
         cmds += "\n\nquit\n"
 
-        return self.run_avl(cmds=cmds,
-                            pre_fn=self._write_analysis_files,
-                            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution))
+        return self.run_avl(
+            cmds=cmds,
+            pre_fn=self._write_analysis_files,
+            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution),
+        )
 
     @staticmethod
     def _show_trefftz_case_cmds(case_number):
@@ -290,7 +318,7 @@ class _CloseWindow(tk.Frame):
         tk.Frame.__init__(self, master)
 
         # Make sure window is on top
-        master.call('wm', 'attributes', '.', '-topmost', '1')
+        master.call("wm", "attributes", ".", "-topmost", "1")
         self.pack()
         self._on_open = on_open
         self._on_close = on_close
@@ -303,8 +331,8 @@ class _CloseWindow(tk.Frame):
                 self._on_close()
             top = self.winfo_toplevel()
             top.destroy()
-        close_button = tk.Button(self, text="Close",
-                                 command=on_close_wrapper)
+
+        close_button = tk.Button(self, text="Close", command=on_close_wrapper)
         close_button.pack()
         return close_button
 
@@ -319,10 +347,11 @@ class InputError(Exception):
 
 
 def run_with_close_window(avl, cmds):
-    quit_cmd = '\n\nquit\n'
+    quit_cmd = "\n\nquit\n"
     tk_root = tk.Tk()
 
-    def open_fn(): avl.stdin.write(cmds.encode())
+    def open_fn():
+        avl.stdin.write(cmds.encode())
 
     def close_fn():
         avl.stdin.write(quit_cmd.encode())

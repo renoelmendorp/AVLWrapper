@@ -6,17 +6,16 @@ import os.path
 import shutil
 import sys
 
-if os.name == 'nt':
+if os.name == "nt":
     import winreg
 
-CONFIG_FILE = 'config.cfg'
+CONFIG_FILE = "config.cfg"
 MODULE_DIR = os.path.dirname(__file__)
 
-logger = logging.getLogger('avlwrapper')
+logger = logging.getLogger("avlwrapper")
 
 
 class Configuration:
-
     def __init__(self, filepath=None):
 
         self._settings = None
@@ -37,26 +36,24 @@ class Configuration:
         parser.read(self.filepath)
 
         settings = dict()
-        avl_path = parser['environment']['executable']
+        avl_path = parser["environment"]["executable"]
         try:
-            settings['avl_bin'] = check_bin(bin_path=avl_path)
+            settings["avl_bin"] = check_bin(bin_path=avl_path)
         except FileNotFoundError:
             pass
-        
-        gs_path = parser['environment']['ghostscriptexecutable']
+
+        gs_path = parser["environment"]["ghostscriptexecutable"]
         try:
-            settings['gs_bin'] = get_ghostscript(bin_path=gs_path)
+            settings["gs_bin"] = get_ghostscript(bin_path=gs_path)
         except FileNotFoundError:
             pass
 
         # show stdout of avl
-        show_output = parser['environment']['printoutput']
-        settings['show_stdout'] = show_output == 'yes'
+        show_output = parser["environment"]["printoutput"]
+        settings["show_stdout"] = show_output == "yes"
 
         # Output files
-        settings['output'] = {k: v
-                              for k, v in parser['output'].items()
-                              if v == 'yes'}
+        settings["output"] = {k: v for k, v in parser["output"].items() if v == "yes"}
 
         return settings
 
@@ -71,7 +68,7 @@ class Configuration:
 
     def __getitem__(self, key):
         return self.settings[key]
-    
+
     def __setitem__(self, key, value):
         self.settings[key] = value
 
@@ -83,8 +80,8 @@ def check_bin(bin_path, error_msg=""):
             return bin_path
 
     # append .exe if on Windows
-    if os.name == 'nt' and not bin_path.endswith('.exe'):
-        bin_path += '.exe'
+    if os.name == "nt" and not bin_path.endswith(".exe"):
+        bin_path += ".exe"
 
     # check working dir
     local_bin = os.path.join(os.getcwd(), bin_path)
@@ -97,12 +94,11 @@ def check_bin(bin_path, error_msg=""):
         return module_bin
 
     # check system path
-    system_paths = os.environ['PATH'].split(os.pathsep)
+    system_paths = os.environ["PATH"].split(os.pathsep)
     system_paths.extend(sys.path)
     for path in system_paths:
         candidate_path = os.path.join(path, bin_path)
-        if (os.path.exists(candidate_path)
-                and os.access(candidate_path, os.X_OK)):
+        if os.path.exists(candidate_path) and os.access(candidate_path, os.X_OK):
             return candidate_path
 
     raise FileNotFoundError(error_msg)
@@ -113,14 +109,13 @@ def get_ghostscript(bin_path):
         return check_bin(bin_path)
     except FileNotFoundError as e:
         # when running on Windows, use the registry to find Ghostscript
-        if os.name == 'nt':
-            key_path = r'SOFTWARE\Artifex\GPL Ghostscript'
+        if os.name == "nt":
+            key_path = r"SOFTWARE\Artifex\GPL Ghostscript"
             with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, key_path) as key:
                 sub_keys = list(_get_reg_sub_keys(key))
                 gs_dir = winreg.QueryValue(key, sub_keys[-1])
-            gs_bin = os.path.join(gs_dir, 'bin', 'gswin64c.exe')
-            if (os.path.exists(gs_bin)
-                    and os.access(gs_bin, os.X_OK)):
+            gs_bin = os.path.join(gs_dir, "bin", "gswin64c.exe")
+            if os.path.exists(gs_bin) and os.access(gs_bin, os.X_OK):
                 return gs_bin
         raise e
 
