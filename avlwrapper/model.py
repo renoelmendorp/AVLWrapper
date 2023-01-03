@@ -136,19 +136,19 @@ class Spacial(NamedTuple):
 
     def __add__(self, other):
         kwargs = {}
-        for attr in ['x', 'y', 'z']:
+        for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) + getattr(other, attr)
         return Spacial(**kwargs)
 
     def __mul__(self, other):
         kwargs = {}
-        for attr in ['x', 'y', 'z']:
+        for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) * other
         return Spacial(**kwargs)
 
     def __truediv__(self, other):
         kwargs = {}
-        for attr in ['x', 'y', 'z']:
+        for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) / other
         return Spacial(**kwargs)
 

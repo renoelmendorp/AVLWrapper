@@ -10,37 +10,47 @@ import pytest
 import avlwrapper as avl
 
 CDIR = os.path.dirname(os.path.realpath(__file__))
-RES_DIR = os.path.join(CDIR, 'resources')
-AVL_FILE = os.path.join(RES_DIR, 'b737.avl')
-CASE_FILE = os.path.join(RES_DIR, 'b737.run')
+RES_DIR = os.path.join(CDIR, "resources")
+AVL_FILE = os.path.join(RES_DIR, "b737.avl")
+CASE_FILE = os.path.join(RES_DIR, "b737.run")
 
-OUT_FILES = ['st', 'sb', 'ft', 'fn', 'fs', 'fe', 'fb', 'hm', 'vm']
+OUT_FILES = ["st", "sb", "ft", "fn", "fs", "fe", "fb", "hm", "vm"]
 
-B737_SURFACES = ['Wing', 'Stab', 'Fin', 'Fuselage H', 'Fuselage V Bottom', 'Fuselage V Top', 'Nacelle']
+B737_SURFACES = [
+    "Wing",
+    "Stab",
+    "Fin",
+    "Fuselage H",
+    "Fuselage V Bottom",
+    "Fuselage V Top",
+    "Nacelle",
+]
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def manual_run():
-    avl_bin = avl.default_config['avl_bin']
-    run_file = 'runfile'
-    with TemporaryDirectory(prefix='avltest_') as working_dir:
+    avl_bin = avl.default_config["avl_bin"]
+    run_file = "runfile"
+    with TemporaryDirectory(prefix="avltest_") as working_dir:
         run_file_path = os.path.join(working_dir, run_file)
-        with open(run_file_path, 'w') as run_file:
-            run_file.write('load b737.avl\n')
-            run_file.write('case b737.run\n')
-            run_file.write('oper\nx\n')
+        with open(run_file_path, "w") as run_file:
+            run_file.write("load b737.avl\n")
+            run_file.write("case b737.run\n")
+            run_file.write("oper\nx\n")
             for f in OUT_FILES:
-                run_file.write(f'{f}\nb737.{f}\n')
-            run_file.write('\n\nq\n')
-        for b737_file in glob.glob(os.path.join(RES_DIR, 'b737*')):
+                run_file.write(f"{f}\nb737.{f}\n")
+            run_file.write("\n\nq\n")
+        for b737_file in glob.glob(os.path.join(RES_DIR, "b737*")):
             shutil.copy(b737_file, working_dir)
-        shutil.copy(os.path.join(RES_DIR, 'a1.dat'), working_dir)
+        shutil.copy(os.path.join(RES_DIR, "a1.dat"), working_dir)
         with open(run_file_path) as ifile:
-            proc = subprocess.Popen(avl_bin, cwd=working_dir, stdin=ifile, stdout=open(os.devnull, "w"))
+            proc = subprocess.Popen(
+                avl_bin, cwd=working_dir, stdin=ifile, stdout=open(os.devnull, "w")
+            )
             proc.wait()
         outputs = {}
         for f in OUT_FILES:
-            f_path = os.path.join(working_dir, f'b737.{f}')
+            f_path = os.path.join(working_dir, f"b737.{f}")
             outputs[f] = avl.OutputReader(f_path).get_content()
     return outputs
 
