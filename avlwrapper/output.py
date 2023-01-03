@@ -2,6 +2,8 @@ import os.path
 import re
 import warnings
 
+from avlwrapper import logger
+
 
 # pattern to match a floating point number with:
 # optional leading '+' or '-'
@@ -63,11 +65,11 @@ class FileReader:
 
     @staticmethod
     def get_line_values(data_line):
-        data_list = re.findall(rf"({FLOATING_POINT_PATTERN}|\*{8})", data_line)
+        data_list = re.findall(rf"({FLOATING_POINT_PATTERN}|\*+)", data_line)
         values = []
         raised_warning = False
         for val in data_list:
-            if val == "*" * 8:
+            if "*" in val:
                 values.append(float("nan"))
                 if not raised_warning:
                     msg = (
@@ -75,7 +77,7 @@ class FileReader:
                         "Most likely the value contained more characters "
                         "than the AVL output formatter supports:\n"
                     )
-                    warnings.warn(msg + data_line)
+                    logger.warn(msg + data_line)
                 raised_warning = True
             else:
                 values.append(float(val))
