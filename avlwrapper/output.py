@@ -286,7 +286,7 @@ class StabilityFileReader(FileReader):
             match = re.search(r"d\d+", key)
             if match is not None:
                 d = match.group(0)
-                name = controls[d]
+                name = "_" + controls[d]
                 new_key = re.sub(d, name, key)
                 new_dict[new_key] = new_dict[key]
                 new_dict.pop(key)
