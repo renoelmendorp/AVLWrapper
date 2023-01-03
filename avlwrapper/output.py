@@ -1,6 +1,5 @@
 import os.path
 import re
-import warnings
 
 from avlwrapper import logger
 
@@ -342,7 +341,7 @@ class OutputReader:
         if extension in self._reader_classes:
             self.reader = self._reader_classes[extension](file_path)
         else:
-            warnings.warn(f"Unknown output file: {file_path}")
+            logger.warning(f"Unknown output file: {file_path}")
             self.reader = GenericReader(file_path)
 
     def get_content(self):
