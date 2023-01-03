@@ -5,7 +5,6 @@ from enum import Enum, IntEnum, auto
 import os
 import re
 from typing import Iterable, List, Optional, NamedTuple, Union
-import warnings
 
 from avlwrapper import VERSION, logger
 
@@ -1013,8 +1012,26 @@ class Case(Input):
                     self.controls.append(key)
                     self.parameters[param_str] = Parameter(name=param_str, value=value)
 
+
     @classmethod
     def _from_lines(cls, lines_in: List[str]):
+        """
+        Create a list of Case instances from lines in case-file format
+        """
+
+        # get case number and title
+        # split the cases
+        line_idx = [idx for idx, line in enumerate(lines_in) if "run case" in line.lower()]
+        line_idx.append(len(lines_in))
+
+        cases = []
+        for start, end in zip(line_idx[:-1], line_idx[1:]):
+            cases.append(Case.__create_case(lines_in[start:end]))
+
+        return cases
+
+    @classmethod
+    def __create_case(cls, lines_in: List[str]):
         """
         Create a Case instance from lines in case-file format
         """
@@ -1025,7 +1042,7 @@ class Case(Input):
             number = int(match.group(1))
             name = match.group(2)
         else:
-            warnings.warn("Case name or number not found, check format")
+            logger.warning("Case name or number not found, check format")
             number = 1
             name = "unknown"
 
@@ -1106,27 +1123,6 @@ class Case(Input):
             case_str += str(state)
 
         return case_str
-
-
-def read_case_file(filename):
-    with open(filename, "rt") as fp:
-        lines = fp.readlines()
-
-    # remove empty lines
-    lines = list(filter(line_is_not_empty, lines))
-
-    # remove separator lines
-    lines = list(filter(lambda line: not line.strip().startswith("-"), lines))
-
-    # split the cases
-    line_idx = [idx for idx, line in enumerate(lines) if "run case" in line.lower()]
-    line_idx.append(len(lines))
-
-    cases = []
-    for start, end in zip(line_idx[:-1], line_idx[1:]):
-        cases.append(Case.from_lines(lines[start:end]))
-
-    return cases
 
 
 def optional_str(obj):

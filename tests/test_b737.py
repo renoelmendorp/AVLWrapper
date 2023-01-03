@@ -62,7 +62,7 @@ def model():
 
 @pytest.fixture()
 def run_case():
-    return avl.Case.from_file(CASE_FILE)
+    return avl.Case.from_file(CASE_FILE)[0]
 
 
 def test_model(model):
