@@ -162,7 +162,12 @@ class IntStrEnum(IntEnum):
         return str(self.value)
 
 
-class Spacing(IntStrEnum):
+class FloatStrEnum(IntEnum):
+    def __str__(self):
+        return str(float(self.value))
+
+
+class Spacing(FloatStrEnum):
     sine = 2
     cosine = 1
     equal = 0
