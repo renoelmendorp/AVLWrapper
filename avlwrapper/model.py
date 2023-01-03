@@ -90,22 +90,34 @@ class ModelInput(Input, ABC):
             if not param.attr_type == AttrType.list and param.attr in kwargs:
                 raise ValueError(f"Only one {token} is allowed")
 
+            # parse values
             if param.cls is None:
-                if param.attr_type == AttrType.scalar:
-                    value = float(data[1].strip())
+                if param.attr_type == AttrType.float:
+                    kwargs[param.attr] = float(data[1].strip())
+                elif param.attr_type == AttrType.int:
+                    value = data[1].strip()
+                    try:
+                        value = int(value)
+                    except ValueError:
+                        value = float(int(value))
+                        logger.warn(f"Float converted to int: {param.name}")
+                    finally:
+                        kwargs[param.attr] = value
+
                 elif param.attr_type == AttrType.boolean:
-                    value = True
+                    kwargs[param.attr] = True
                 elif param.attr_type == AttrType.vector:
                     vals = [float(s) for s in data[1].split()]
                     if len(vals) != 3:
                         raise InputError(data)
-                    value = Vector(*vals)
+                    kwargs[param.attr] = Vector(*vals)
                 else:
                     assert False
-                kwargs[param.attr] = value
+
+            # instantiate classes
             else:
                 obj = param.cls.from_lines(data)
-                if param.attr_type == AttrType.scalar:
+                if param.attr_type == AttrType.single:
                     kwargs[param.attr] = obj
                 elif param.attr_type == AttrType.list:
                     kwargs[param.attr].append(obj)
@@ -1139,10 +1151,12 @@ ParameterType = namedtuple("ParameterType", ["cls", "attr", "attr_type"])
 
 
 class AttrType(Enum):
-    scalar = auto()
+    single = auto()
     list = auto()
     vector = auto()
     boolean = auto()
+    float = auto()
+    int = auto()
 
 
 # Mapping of keywords to avlwrapper classes
@@ -1153,30 +1167,30 @@ KEYWORDS = {
         "BODY": PT(Body, "bodies", AttrType.list),
     },
     Surface: {
-        "COMPONENT": PT(None, "component", AttrType.scalar),
-        "INDEX": PT(None, "component", AttrType.scalar),
-        "YDUPLICATE": PT(None, "y_duplicate", AttrType.scalar),
+        "COMPONENT": PT(None, "component", AttrType.int),
+        "INDEX": PT(None, "component", AttrType.int),
+        "YDUPLICATE": PT(None, "y_duplicate", AttrType.float),
         "SCALE": PT(None, "scaling", AttrType.vector),
         "TRANSLATE": PT(None, "translation", AttrType.vector),
-        "ANGLE": PT(None, "angle", AttrType.scalar),
+        "ANGLE": PT(None, "angle", AttrType.float),
         "NOWAKE": PT(None, "no_wake", AttrType.boolean),
         "NOALBE": PT(None, "fixed", AttrType.boolean),
         "NOLOAD": PT(None, "no_loads", AttrType.boolean),
-        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.scalar),
+        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.float),
         "SECTION": PT(Section, "sections", AttrType.list),
     },
     Body: {
-        "YDUPLICATE": PT(None, "y_duplicate", AttrType.scalar),
+        "YDUPLICATE": PT(None, "y_duplicate", AttrType.float),
         "SCALE": PT(None, "scaling", AttrType.vector),
         "TRANSLATE": PT(None, "translation", AttrType.vector),
-        "BFILE": PT(BodyProfile, "body_section", AttrType.scalar),
+        "BFILE": PT(BodyProfile, "body_section", AttrType.single),
     },
     Section: {
-        "NACA": PT(NacaAirfoil, "airfoil", AttrType.scalar),
-        "AIRFOIL": PT(DataAirfoil, "airfoil", AttrType.scalar),
-        "CLAF": PT(None, "cl_alpha_scaling", AttrType.scalar),
-        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.scalar),
-        "AFILE": PT(FileAirfoil, "airfoil", AttrType.scalar),
+        "NACA": PT(NacaAirfoil, "airfoil", AttrType.single),
+        "AIRFOIL": PT(DataAirfoil, "airfoil", AttrType.single),
+        "CLAF": PT(None, "cl_alpha_scaling", AttrType.float),
+        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.float),
+        "AFILE": PT(FileAirfoil, "airfoil", AttrType.single),
         "CONTROL": PT(Control, "controls", AttrType.list),
     },
 }
