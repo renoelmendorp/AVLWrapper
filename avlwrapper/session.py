@@ -17,6 +17,7 @@ class Session(object):
     OUTPUTS = {
         "Totals": "ft",
         "SurfaceForces": "fn",
+        "BodyForces": "fb",
         "StripForces": "fs",
         "ElementForces": "fe",
         "StabilityDerivatives": "st",

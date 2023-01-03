@@ -11,6 +11,7 @@ RES_DIR = os.path.join(THIS_DIR, "resources")
 # OUTPUTS = {
 #     "Totals": "ft",
 #     "SurfaceForces": "fn",
+#     "BodyForces": "fb",
 #     "StripForces": "fs",
 #     "ElementForces": "fe",
 #     "StabilityDerivatives": "st",
@@ -36,6 +37,17 @@ def test_surface_forces():
     res = get_output("b737.fn")
     assert res["Wing"]["Area"] == pytest.approx(2 * 531.687, 1e-6)
     assert res["Nacelle"]["CY"] == pytest.approx(0.0, 1e-6)
+
+
+def test_body_forces():
+    res = get_output("supra.fb")
+    assert res["Fuse pod"]["Length"] == pytest.approx(67.500, 1e-6)
+    assert res["Fuse pod"]["Cm"] == pytest.approx(0.0011, 1e-6)
+
+
+def test_empty_body_forces():
+    res = get_output("b737.fb")
+    assert res == {}
 
 
 def test_strip_forces():

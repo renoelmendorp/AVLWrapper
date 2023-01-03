@@ -118,16 +118,20 @@ class TotalsFileReader(FileReader):
         return self.get_vars(self.lines)
 
 
-class SurfaceFileReader(FileReader):
+class _ForcesFileReader(FileReader):
+    def __init__(self, file_path, header_re):
+        self._header_re = header_re
+        super().__init__(file_path)
+
     def parse(self):
-        start_line, end_line = self.get_table_start_end(self.lines, r"(n\s+Area\s+CL)")
+        start_line, end_line = self.get_table_start_end(self.lines, self._header_re)
         table_content = self.lines[start_line:end_line]
         surface_data = self.parse_table(table_content)
         return surface_data
 
     def parse_table(self, table_lines):
         header = self.extract_header(table_lines)
-        surface_data = dict()
+        forces_data = dict()
         for line in table_lines[1:]:
             line_data = self.get_line_values(line)
 
@@ -143,16 +147,26 @@ class SurfaceFileReader(FileReader):
             # Combine surfaces labeled with (YDUP)
             if "(YDUP)" in name:
                 base_name = self.remove_ydup(name)
-                base_data = surface_data[base_name]
+                base_data = forces_data[base_name]
                 all_data = zip(header, [base_data[key] for key in header], line_data)
-                surface_data[base_name] = {
+                forces_data[base_name] = {
                     key: base_value + value for key, base_value, value in all_data
                 }
             else:
-                surface_data[name] = {
+                forces_data[name] = {
                     key: value for key, value in zip(header, line_data)
                 }
-        return surface_data
+        return forces_data
+
+
+class SurfaceFileReader(_ForcesFileReader):
+    def __init__(self, file_path):
+        super().__init__(file_path, r"(n\s+Area\s+CL)")
+
+
+class BodyFileReader(_ForcesFileReader):
+    def __init__(self, file_path):
+        super().__init__(file_path, r"Ibdy\s+Length\s+Asurf")
 
 
 class StripFileReader(FileReader):
@@ -292,7 +306,7 @@ class StabilityFileReader(FileReader):
         return new_dict
 
 
-class BodyFileReader(StabilityFileReader):
+class BodyAxisFileReader(StabilityFileReader):
     @property
     def var_lines(self):
         idx = [
@@ -328,10 +342,11 @@ class OutputReader:
     _reader_classes = {
         ".ft": TotalsFileReader,
         ".fn": SurfaceFileReader,
+        ".fb": BodyFileReader,
         ".fs": StripFileReader,
         ".fe": ElementFileReader,
         ".st": StabilityFileReader,
-        ".sb": BodyFileReader,
+        ".sb": BodyAxisFileReader,
         ".hm": HingeFileReader,
         ".vm": ShearFileReader,
     }
