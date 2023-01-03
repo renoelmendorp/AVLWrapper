@@ -77,7 +77,7 @@ class FileReader:
                         "Most likely the value contained more characters "
                         "than the AVL output formatter supports:\n"
                     )
-                    logger.warn(msg + data_line)
+                    logger.warning(msg + data_line)
                 raised_warning = True
             else:
                 values.append(float(val))
@@ -200,7 +200,7 @@ class StripFileReader(FileReader):
                     values = values[1:]
 
                 if len(values) < len(header):
-                    logger.warn("Table values missing. Replaced with NaN")
+                    logger.warning("Table values missing. Replaced with NaN")
                     values += [float("nan")] * (len(header) - len(values))
                 elif len(values) > len(header):
                     raise ValueError("Incorrect table format")

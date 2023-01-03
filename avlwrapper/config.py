@@ -55,6 +55,10 @@ class Configuration:
         # Output files
         settings["output"] = {k: v for k, v in parser["output"].items() if v == "yes"}
 
+        # set log level
+        settings["loglevel"] = parser["environment"]["loglevel"]
+        logger.setLevel(settings["loglevel"])
+
         return settings
 
     def local_copy(self, target=os.getcwd()):

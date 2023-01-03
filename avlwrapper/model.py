@@ -100,7 +100,7 @@ class ModelInput(Input, ABC):
                         value = int(value)
                     except ValueError:
                         value = float(int(value))
-                        logger.warn(f"Float converted to int: {param.name}")
+                        logger.warning(f"Float converted to int: {param.name}")
                     finally:
                         kwargs[param.attr] = value
 
