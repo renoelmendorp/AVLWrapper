@@ -23,6 +23,19 @@ class InputError(ValueError):
 class Input(ABC):
     @classmethod
     def from_lines(cls, lines_in: List[str]):
+        # remove commented lines
+        lines = list(filter(line_has_no_comment, lines_in))
+
+        # remove empty lines
+        lines = list(filter(line_is_not_empty, lines))
+
+        # remove lines with only "-" and spaces
+        lines = list(filter(line_is_not_separator, lines))
+
+        return cls._from_lines(lines)
+
+    @classmethod
+    def _from_lines(cls, lines_in: List[str]):
         """
         To be implemented by subclasses. This method creates an instance
         from a list of strings from the input file representing the object
@@ -41,15 +54,6 @@ class Input(ABC):
         # read file to lines
         with open(filename, "rt") as fp:
             lines = fp.readlines()
-
-        # remove commented lines
-        lines = list(filter(line_has_no_comment, lines))
-
-        # remove empty lines
-        lines = list(filter(line_is_not_empty, lines))
-
-        # remove lines with only "-" and spaces
-        lines = list(filter(line_is_not_separator, lines))
 
         return cls.from_lines(lines)
 
@@ -222,7 +226,7 @@ class NacaAirfoil(Airfoil, _NacaAirfoil):
         return "naca"
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         if len(lines_in) != 2:
             raise InputError(lines_in)
         x1, x2 = cls.read_x1_x2(lines_in[0])
@@ -248,7 +252,7 @@ class DataAirfoil(Airfoil, _DataAirfoil):
         return "airfoil"
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         x1, x2 = cls.read_x1_x2(lines_in[0])
         # The first line contains the "AIRFOIL" keyword and optionally x1 and x2 but no x/z data, so it must be removed
         # prior to parsing the x/z data
@@ -277,7 +281,7 @@ class FileAirfoil(Airfoil, _FileAirfoil):
         return "afile"
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         if len(lines_in) != 2:
             raise InputError(lines_in)
         x1, x2 = cls.read_x1_x2(lines_in[0])
@@ -329,7 +333,7 @@ class Control(ModelInput):
         )
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         if len(lines_in) != 2:
             raise InputError(lines_in)
         params = lines_in[1].split()
@@ -368,7 +372,7 @@ class DesignVar(ModelInput):
         return f"DESIGN\n#Name Weight\n{self.name} {self.weight}\n"
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         if len(lines_in) != 2:
             raise InputError(lines_in)
         params = lines_in[1].split()
@@ -402,7 +406,7 @@ class ProfileDrag(ModelInput):
         return header + body + "\n"
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         if len(lines_in) != 2:
             raise InputError(lines_in)
         params = [float(s) for s in lines_in[1].split()]
@@ -473,7 +477,7 @@ class Section(ModelInput):
         return self._header_str + self._body_str
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         # first 2 lines contain section data, rest contains airfoils, etc.
         header_lines = lines_in[:2]
         body_lines = lines_in[2:]
@@ -597,7 +601,7 @@ class Surface(ModelInput):
         return tokens
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         # first 3 lines contain name and surface parameters
         header_lines = lines_in[:3]
         body_lines = lines_in[3:]
@@ -658,7 +662,7 @@ class Body(ModelInput):
         return s
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         # first 3 lines contain name and body parameters
         header_lines = lines_in[:3]
         body_lines = lines_in[3:]
@@ -726,7 +730,7 @@ class Aircraft(ModelInput):
         )
 
     @classmethod
-    def from_lines(cls, lines_in):
+    def _from_lines(cls, lines_in):
         # first 5 or 6 lines contain name and parameters
         keywords = [k[:5] for k in list(KEYWORDS[Aircraft].keys())]
         if any([lines_in[5].startswith(key) for key in keywords]):
@@ -809,7 +813,7 @@ class Parameter(Input):
             self.setting = self.name
 
     @classmethod
-    def from_lines(cls, lines_in: List[str]):
+    def _from_lines(cls, lines_in: List[str]):
         if len(lines_in) != 1:
             raise InputError(lines_in)
         name, setting, value_str = (
@@ -831,7 +835,7 @@ class State(Input):
     unit: str = ""
 
     @classmethod
-    def from_lines(cls, lines_in: List[str]):
+    def _from_lines(cls, lines_in: List[str]):
         if len(lines_in) != 1:
             raise InputError(lines_in)
         params = multi_split(lines_in[0], "=", " ")
@@ -969,7 +973,7 @@ class Case(Input):
                     self.parameters[param_str] = Parameter(name=param_str, value=value)
 
     @classmethod
-    def from_lines(cls, lines_in: List[str]):
+    def _from_lines(cls, lines_in: List[str]):
         """
         Create a Case instance from lines in case-file format
         """
