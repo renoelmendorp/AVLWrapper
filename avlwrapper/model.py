@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
 import os
 import re
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, NamedTuple, Union
 import warnings
 
 from avlwrapper import VERSION
@@ -110,8 +110,14 @@ class ModelInput(Input, ABC):
         return kwargs
 
 
-Spacial = namedtuple("Spacial", ["x", "y", "z"])
-Spacial.__str__ = lambda self: f"{self.x} {self.y} {self.z}"
+class Spacial(NamedTuple):
+    x: float
+    y: float
+    z: float
+
+    def __str__(self):
+        return f"{self.x} {self.y} {self.z}"
+
 
 Point = Spacial
 Vector = Spacial
