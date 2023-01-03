@@ -7,7 +7,7 @@ import re
 from typing import Iterable, List, Optional, NamedTuple, Union
 import warnings
 
-from avlwrapper import VERSION
+from avlwrapper import VERSION, logger
 
 
 class InputError(ValueError):
@@ -137,6 +137,17 @@ class Spacing(IntStrEnum):
     cosine = 1
     equal = 0
     neg_sine = -2
+
+    @classmethod
+    def parse(cls, val, force=False):
+        try:
+            return cls(val)
+        except ValueError:
+            if force:
+                return cls(round(val))
+            else:
+                logger.info(f"{val} not converted to Spacing")
+                return val
 
 
 class Symmetry(IntStrEnum):
@@ -491,8 +502,8 @@ class Section(ModelInput):
             "angle": params[4],
         }
         if len(params) == 7:
-            kwargs["n_spanwise"] = params[5]
-            kwargs["span_spacing"] = params[6]
+            kwargs["n_spanwise"] = int(params[5])
+            kwargs["span_spacing"] = Spacing.parse(params[6])
 
         kwargs.update(cls.parse_lines(body_lines))
 
@@ -614,11 +625,11 @@ class Surface(ModelInput):
         kwargs = {
             "name": name,
             "n_chordwise": int(params[0]),
-            "chord_spacing": params[1],
+            "chord_spacing": Spacing.parse(params[1]),
         }
         if len(params) == 4:
             kwargs["n_spanwise"] = int(params[2])
-            kwargs["span_spacing"] = params[3]
+            kwargs["span_spacing"] = Spacing.parse(params[3])
 
         kwargs.update(cls.parse_lines(body_lines))
 
@@ -671,7 +682,10 @@ class Body(ModelInput):
         params = line_to_floats(header_lines[2])
         if len(params) != 2:
             InputError(header_lines)
-        kwargs = {"name": name, "n_body": int(params[0]), "body_spacing": params[1]}
+        kwargs = {"name": name,
+                  "n_body": int(params[0]),
+                  "body_spacing": Spacing.parse(params[1])
+                  }
 
         kwargs.update(cls.parse_lines(body_lines))
 
