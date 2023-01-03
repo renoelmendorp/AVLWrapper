@@ -131,7 +131,7 @@ class SurfaceFileReader(FileReader):
             # ignore first column
             line_data = line_data[1:]
 
-            name = re.findall(r"[^-\dE.\s+\*](.+)\n", line)[0].strip()
+            name = re.findall(r"(\D*)$", line)[0].strip()
 
             if len(line_data) < len(header):
                 raise ValueError("Incorrect table format")
