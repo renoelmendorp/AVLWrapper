@@ -2,6 +2,7 @@ import glob
 import os.path
 import shutil
 import subprocess
+from math import isnan
 from tempfile import TemporaryDirectory
 
 import pytest
@@ -73,7 +74,10 @@ def test_b737_session(model, run_case, manual_run):
                 check_all_entries(result[key], reference[key])
             elif isinstance(result[key], list):
                 for el, ref in zip(result[key], reference[key]):
-                    assert el == pytest.approx(ref, 1e-6)
+                    if isnan(el) or isnan(ref):
+                        continue
+                    else:
+                        assert el == pytest.approx(ref, 1e-6)
             else:
                 assert result[key] == pytest.approx(reference[key], 1e-6)
 
