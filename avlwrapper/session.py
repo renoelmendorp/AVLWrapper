@@ -190,12 +190,12 @@ class Session(object):
     def _read_results(self, target_dir):
         results = dict()
         for case in self.cases:
-            results[case.name] = dict()
+            results[case.number] = {"Name": case.name}
             for output, ext in self.requested_output.items():
                 file_name = self._get_output_filename(case, ext)
                 file_path = os.path.join(target_dir, file_name)
                 reader = OutputReader(file_path=file_path)
-                results[case.name][output] = reader.get_content()
+                results[case.number][output] = reader.get_content()
         return results
 
     def _get_output_filename(self, case, ext):

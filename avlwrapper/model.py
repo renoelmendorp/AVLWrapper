@@ -2,6 +2,7 @@ from abc import ABC
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
+import itertools
 import os
 import re
 from typing import Iterable, List, Optional, NamedTuple, Union
@@ -92,24 +93,22 @@ class ModelInput(Input, ABC):
             # parse values
             if param.cls is None:
                 if param.attr_type == AttrType.float:
-                    kwargs[param.attr] = float(data[1].strip())
+                    kwargs[param.attr] = line_to_floats(data[1].strip(), limit=1)[0]
+
                 elif param.attr_type == AttrType.int:
-                    value = data[1].strip()
-                    try:
-                        value = int(value)
-                    except ValueError:
-                        value = float(int(value))
-                        logger.warning(f"Float converted to int: {param.name}")
-                    finally:
-                        kwargs[param.attr] = value
+                    kwargs[param.attr] = int(
+                        line_to_floats(data[1].strip(), limit=1)[0]
+                    )
 
                 elif param.attr_type == AttrType.boolean:
                     kwargs[param.attr] = True
+
                 elif param.attr_type == AttrType.vector:
-                    vals = [float(s) for s in data[1].split()]
+                    vals = line_to_floats(data[1].strip(), limit=3)
                     if len(vals) != 3:
                         raise InputError(data)
                     kwargs[param.attr] = Vector(*vals)
+
                 else:
                     assert False
 
@@ -765,7 +764,8 @@ class Aircraft(ModelInput):
         return "\n".join(
             [
                 f"{self.name}",
-                f"#AVL input file written by avlwrapper {VERSION}"
+                f"#AVL input file written by avlwrapper {VERSION}",
+                "",
                 f"#Mach\n{self.mach}",
                 "#iYsym iZsym Zsym",
                 f"{self.y_symmetry} {self.z_symmetry} {self.z_symmetry_plane}",
@@ -773,7 +773,9 @@ class Aircraft(ModelInput):
                 f"{self.reference_area} {self.reference_chord} {self.reference_span}",
                 f"#Xref Yref Zref\n{self.reference_point}",
                 f"{self.cd_p}",
+                "",
                 *map(str, self.surfaces),
+                "",
                 *map(str, self.bodies),
             ]
         )
@@ -791,19 +793,19 @@ class Aircraft(ModelInput):
 
         kwargs = {
             "name": header_lines[0].strip(),
-            "mach": float(header_lines[1].strip()),
+            "mach": line_to_floats(header_lines[1].strip(), limit=1)[0],
         }
 
-        symmetry_params = line_to_floats(header_lines[2])
+        symmetry_params = line_to_floats(header_lines[2], limit=3)
         kwargs["y_symmetry"] = Symmetry(int(symmetry_params[0]))
         kwargs["z_symmetry"] = Symmetry(int(symmetry_params[1]))
         kwargs["z_symmetry_plane"] = symmetry_params[2]
 
-        reference_params = line_to_floats(header_lines[3])
+        reference_params = line_to_floats(header_lines[3], limit=3)
         kwargs["reference_area"] = reference_params[0]
         kwargs["reference_chord"] = reference_params[1]
         kwargs["reference_span"] = reference_params[2]
-        pnt = Point(*line_to_floats(header_lines[4]))
+        pnt = Point(*line_to_floats(header_lines[4], limit=3))
         kwargs["reference_point"] = pnt
 
         kwargs.update(cls.parse_lines(body_lines))
@@ -1012,7 +1014,6 @@ class Case(Input):
                     self.controls.append(key)
                     self.parameters[param_str] = Parameter(name=param_str, value=value)
 
-
     @classmethod
     def _from_lines(cls, lines_in: List[str]):
         """
@@ -1021,7 +1022,9 @@ class Case(Input):
 
         # get case number and title
         # split the cases
-        line_idx = [idx for idx, line in enumerate(lines_in) if "run case" in line.lower()]
+        line_idx = [
+            idx for idx, line in enumerate(lines_in) if "run case" in line.lower()
+        ]
         line_idx.append(len(lines_in))
 
         cases = []
@@ -1036,11 +1039,11 @@ class Case(Input):
         Create a Case instance from lines in case-file format
         """
         # get case number and title
-        re_str = r"(?<=Run case)\s*(\d+)\s*:\s*(\S+)"
+        re_str = r"(?<=Run case)\s*(\d+)\s*:\s*(.+)\s*$"
         match = re.search(re_str, lines_in[0], re.IGNORECASE)
         if match is not None:
             number = int(match.group(1))
-            name = match.group(2)
+            name = match.group(2).strip()
         else:
             logger.warning("Case name or number not found, check format")
             number = 1
@@ -1130,8 +1133,16 @@ def optional_str(obj):
     return str(obj) if obj is not None else ""
 
 
-def line_to_floats(line):
-    return [float(s) for s in line.split()]
+def line_to_floats(line, limit=None):
+    elements = line.split()
+    counter = itertools.count() if limit is None else range(limit)
+
+    lst = []
+    for el, _ in zip(elements, counter):
+        if el.startswith("!") or el.startswith("#"):  # rest of the line is a comment
+            break
+        lst.append(float(el))
+    return lst
 
 
 def multi_split(str_in, *seps):
@@ -1203,5 +1214,6 @@ KEYWORDS = {
         "CDCL": PT(ProfileDrag, "profile_drag", AttrType.float),
         "AFILE": PT(FileAirfoil, "airfoil", AttrType.single),
         "CONTROL": PT(Control, "controls", AttrType.list),
+        "DESIGN": PT(DesignVar, "design_vars", AttrType.list),
     },
 }

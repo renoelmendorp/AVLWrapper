@@ -13,4 +13,4 @@ def test_supra():
     cases = avl.Case.from_file(os.path.join(RES_DIR, "supra.run"))
     session = avl.Session(geometry=model, cases=cases)
     results = session.run_all_cases()
-    assert results
+    assert len(results) == len(cases)
