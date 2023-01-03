@@ -198,6 +198,13 @@ class StripFileReader(FileReader):
                 # ignore first column
                 if ignore_first:
                     values = values[1:]
+
+                if len(values) < len(header):
+                    logger.warn("Table values missing. Replaced with NaN")
+                    values += [float("nan")] * (len(header) - len(values))
+                elif len(values) > len(header):
+                    raise ValueError("Incorrect table format")
+
                 for key, value in zip(header, values):
                     strip_results[result_name][key].append(value)
         return strip_results
