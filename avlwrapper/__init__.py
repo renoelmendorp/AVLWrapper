@@ -2,7 +2,7 @@
 """
 VERSION = "0.3.2"
 
-from .config import default_config, Configuration
+from .config import default_config, Configuration, logger
 from .model import (Aircraft, Case, Control, DataAirfoil, DesignVar,
                     Geometry, FileAirfoil, NacaAirfoil, Parameter, Point,
                     ProfileDrag, Section, Symmetry, Spacing, Surface, Vector)

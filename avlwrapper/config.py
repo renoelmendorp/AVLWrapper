@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 import itertools
+import logging
 import os
 import os.path
 import shutil
@@ -10,6 +11,8 @@ if os.name == 'nt':
 
 CONFIG_FILE = 'config.cfg'
 MODULE_DIR = os.path.dirname(__file__)
+
+logger = logging.getLogger('avlwrapper')
 
 
 class Configuration:

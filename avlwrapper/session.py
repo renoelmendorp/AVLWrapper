@@ -4,14 +4,12 @@ import glob
 import os
 import shutil
 import subprocess
-import logging
 from tempfile import TemporaryDirectory
 
 import tkinter as tk
 
-from avlwrapper import Case, OutputReader, default_config
+from avlwrapper import Case, OutputReader, default_config, logger
 
-logger = logging.getLogger(__name__)
 
 class Session(object):
     """Main class which handles AVL runs and input/output"""
