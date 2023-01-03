@@ -1,0 +1,36 @@
+ ---------------------------------------------------------------
+ Vortex Lattice Output -- Total Forces
+
+ Configuration: Boeing 737-800                                              
+     # Surfaces =  11
+     # Strips   = 137
+     # Vortices =1505
+
+  Sref =  1260.0       Cref =  11.000       Bref =  113.00    
+  Xref =  65.269       Yref =  0.0000       Zref =  1.1656    
+
+ Standard axis orientation,  X fwd, Z down         
+
+ Run case: -unnamed-                               
+
+  Alpha =   1.91840     pb/2V =  -0.00000     p'b/2V =  -0.00000
+  Beta  =   0.00000     qc/2V =   0.00000
+  Mach  =     0.700     rb/2V =  -0.00000     r'b/2V =  -0.00000
+
+  CXtot =   0.00770     Cltot =  -0.00000     Cl'tot =  -0.00000
+  CYtot =  -0.00000     Cmtot =  -0.00000
+  CZtot =  -0.54449     Cntot =   0.00000     Cn'tot =   0.00000
+
+  CLtot =   0.54444
+  CDtot =   0.01053
+  CDvis =   0.00000     CDind = 0.0105289
+  CLff  =   0.54551     CDff  = 0.0100678    | Trefftz
+  CYff  =  -0.00000         e =    0.9284    | Plane  
+
+   slat            =   0.00000
+   flap            =   0.00000
+   aileron         =   0.00000
+   elevator        =   0.89680
+   rudder          =   0.00000
+
+ ---------------------------------------------------------------
