@@ -134,6 +134,24 @@ class Spacial(NamedTuple):
     def __str__(self):
         return f"{self.x} {self.y} {self.z}"
 
+    def __add__(self, other):
+        kwargs = {}
+        for attr in ['x', 'y', 'z']:
+            kwargs[attr] = getattr(self, attr) + getattr(other, attr)
+        return Spacial(**kwargs)
+
+    def __mul__(self, other):
+        kwargs = {}
+        for attr in ['x', 'y', 'z']:
+            kwargs[attr] = getattr(self, attr) * other
+        return Spacial(**kwargs)
+
+    def __truediv__(self, other):
+        kwargs = {}
+        for attr in ['x', 'y', 'z']:
+            kwargs[attr] = getattr(self, attr) / other
+        return Spacial(**kwargs)
+
 
 Point = Spacial
 Vector = Spacial
