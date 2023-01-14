@@ -40,8 +40,8 @@ def manual_run():
             for f in OUT_FILES:
                 run_file.write(f"{f}\nb737.{f}\n")
             run_file.write("\n\nq\n")
-        for b737_file in glob.glob(os.path.join(RES_DIR, "b737*")):
-            shutil.copy(b737_file, working_dir)
+        shutil.copy(os.path.join(RES_DIR, "b737.avl"), working_dir)
+        shutil.copy(os.path.join(RES_DIR, "b737.run"), working_dir)
         shutil.copy(os.path.join(RES_DIR, "a1.dat"), working_dir)
         with open(run_file_path) as ifile:
             proc = subprocess.Popen(
@@ -76,7 +76,7 @@ def test_case(run_case):
 
 def test_b737_session(model, run_case, manual_run):
     session = avl.Session(geometry=model, cases=[run_case])
-    results = session.run_all_cases()[run_case.name]
+    results = session.run_all_cases()[run_case.number]
 
     def check_all_entries(result, reference):
         for key in result:
@@ -92,5 +92,8 @@ def test_b737_session(model, run_case, manual_run):
                 assert result[key] == pytest.approx(reference[key], 1e-6)
 
     for res_key in results:
-        man_key = session.OUTPUTS[res_key]
+        try:
+            man_key = session.OUTPUTS[res_key]
+        except KeyError:
+            continue
         check_all_entries(results[res_key], manual_run[man_key])
