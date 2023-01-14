@@ -1,6 +1,6 @@
 """ AVLWrapper
 """
-VERSION = "0.3.3"
+VERSION = "0.3.4"
 
 from .config import default_config, Configuration, logger
 from .model import (
