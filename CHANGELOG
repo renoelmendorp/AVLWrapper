@@ -37,4 +37,4 @@ v0.3.3:
 v0.3.4:
     - Support multiple cases in 1 input file
     - Added body forces output
-  ! - Cases are now indexed by number instead of case, since names are not required to be unique
+  ! - Cases are now indexed by number instead of name, since names are not required to be unique
