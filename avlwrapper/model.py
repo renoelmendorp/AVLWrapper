@@ -456,7 +456,7 @@ class ProfileDrag(ModelInput):
         params = [float(s) for s in lines_in[1].split()]
         if len(params) != 6:
             raise InputError(lines_in)
-        return cls(cl=params[:3], cd=params[3:])
+        return cls(cl=params[::2], cd=params[1::2])
 
 
 @dataclass
@@ -1198,7 +1198,7 @@ KEYWORDS = {
         "NOWAKE": PT(None, "no_wake", AttrType.boolean),
         "NOALBE": PT(None, "fixed", AttrType.boolean),
         "NOLOAD": PT(None, "no_loads", AttrType.boolean),
-        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.float),
+        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.single),
         "SECTION": PT(Section, "sections", AttrType.list),
     },
     Body: {
@@ -1211,7 +1211,7 @@ KEYWORDS = {
         "NACA": PT(NacaAirfoil, "airfoil", AttrType.single),
         "AIRFOIL": PT(DataAirfoil, "airfoil", AttrType.single),
         "CLAF": PT(None, "cl_alpha_scaling", AttrType.float),
-        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.float),
+        "CDCL": PT(ProfileDrag, "profile_drag", AttrType.single),
         "AFILE": PT(FileAirfoil, "airfoil", AttrType.single),
         "CONTROL": PT(Control, "controls", AttrType.list),
         "DESIGN": PT(DesignVar, "design_vars", AttrType.list),
