@@ -1,8 +1,14 @@
 from math import radians, tan
+import os.path
 
 import pytest
 
 import avlwrapper as avl
+
+
+CDIR = os.path.dirname(os.path.realpath(__file__))
+RES_DIR = os.path.join(CDIR, "resources")
+MASS_FILE = os.path.join(RES_DIR, "b737.mass")
 
 
 @pytest.fixture()
@@ -90,3 +96,14 @@ def test_aircraft(avl_wing, avl_body):
     )
     parsed_aircraft = avl.Aircraft.from_lines(str(aircraft).splitlines())
     assert str(aircraft) == str(parsed_aircraft)
+
+
+def test_mass_dist():
+    assert avl.MassDistribution.from_file(MASS_FILE)
+
+
+def test_mass_simplify():
+    mass_dist = avl.MassDistribution.from_file(MASS_FILE)
+    mass_dist.simplify()
+    mass_sum = sum([m.mass for m in mass_dist.masses])
+    assert mass_sum == pytest.approx(170112.5, 1e-6)

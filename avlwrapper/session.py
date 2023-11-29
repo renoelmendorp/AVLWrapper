@@ -11,7 +11,7 @@ import tkinter as tk
 from avlwrapper import Case, OutputReader, default_config, logger
 
 
-class Session(object):
+class Session:
     """Main class which handles AVL runs and input/output"""
 
     OUTPUTS = {
@@ -26,10 +26,16 @@ class Session(object):
         "StripShearMoments": "vm",
     }
 
-    def __init__(self, geometry, cases=None, name=None, config=default_config):
+    MODE_OUTPUTS = {
+        "EigenValues": "eig",
+        "SystemMatrix": "sys",
+    }
+
+    def __init__(self, geometry, cases=None, mass_dist=None, name=None, config=default_config):
         """
-        :param avlwrapper.Aircaft geometry: AVL geometry
-        :param typing.Sequence[Case] cases: Cases to include in input files
+        :param avlwrapper.Aircraft geometry: AVL geometry
+        :param List[Case] cases: Cases to include in input files
+        :param Optional[MassDistribution] mass_dist: Mass distribution
         :param str name: session name, defaults to geometry name
         :param avlwrapper.Configuration config: (optional) dictionary
             containing setting
@@ -40,11 +46,11 @@ class Session(object):
         self.geometry = geometry
         self.cases = self._prepare_cases(cases)
         self.name = name or self.geometry.name
+        self.mass_dist = mass_dist
 
         self._results = None
 
     def _prepare_cases(self, cases):
-
         # guard for cases=None
         if cases is None:
             return []
@@ -74,6 +80,10 @@ class Session(object):
         return self.name + ".case"
 
     @property
+    def mass_file(self):
+        return self.name + ".mass"
+
+    @property
     def requested_output(self):
         requested_outputs = {
             k for k, v in self.config["output"].items() if v.lower() == "yes"
@@ -92,6 +102,11 @@ class Session(object):
         model_path = os.path.join(target_dir, self.model_file)
         with open(model_path, "w") as avl_file:
             avl_file.write(str(self.geometry))
+
+    def _write_mass(self, target_dir):
+        mass_path = os.path.join(target_dir, self.mass_file)
+        with open(mass_path, "w") as mass_file:
+            mass_file.write(str(self.mass_dist))
 
     def _copy_airfoils(self, target_dir):
         airfoil_paths = self.geometry.external_files
@@ -114,8 +129,10 @@ class Session(object):
     def _write_analysis_files(self, target_dir):
         self._write_geometry(target_dir)
         self._copy_airfoils(target_dir)
-        if self.cases is not None:
+        if self.cases:
             self._write_cases(target_dir)
+        if self.mass_dist:
+            self._write_mass(target_dir)
 
     def run_avl(self, cmds, pre_fn, post_fn):
         with TemporaryDirectory(prefix="avl_") as working_dir:
@@ -139,9 +156,12 @@ class Session(object):
 
     @property
     def _load_files_cmds(self):
-        cmds = "load {0}\n".format(self.model_file)
+        cmds = f"load {self.model_file}\n"
         if self.cases:
-            cmds += "case {0}\n".format(self.case_file)
+            cmds += f"case {self.case_file}\n"
+        if self.mass_dist:
+            cmds += f"mass {self.mass_file}\n"
+            cmds += f"mset\n\n"
         return cmds
 
     @property
@@ -159,9 +179,26 @@ class Session(object):
         results = self.run_avl(
             cmds=self._run_all_cases_cmds,
             pre_fn=self._write_analysis_files,
-            post_fn=self._read_results,
+            post_fn=self._read_case_results,
         )
         return results
+
+    @property
+    def _run_mode_analysis_cmds(self):
+        cmds = self._load_files_cmds
+        cmds += self._hide_plot_cmds
+        cmds += "mode\n"
+        cmds += "n\n"
+        cmds += f"s\n{self.name}.sys\n"
+        cmds += f"w\n{self.name}.eig\n"
+        cmds += "\nquit\n"
+        return cmds
+
+    def run_mode_analysis(self):
+        return self.run_avl(
+            cmds=self._run_mode_analysis_cmds,
+            pre_fn=self._write_analysis_files,
+            post_fn=self._read_mode_results)
 
     def _get_avl_bin(self):
         # guard for avl not being present on the system.
@@ -187,7 +224,7 @@ class Session(object):
             cwd=working_dir,
         )
 
-    def _read_results(self, target_dir):
+    def _read_case_results(self, target_dir):
         results = dict()
         for case in self.cases:
             results[case.number] = {"Name": case.name}
@@ -203,6 +240,13 @@ class Session(object):
             base=self.name, case=case.number, ext=ext
         )
         return out_file
+
+    def _read_mode_results(self, target_dir):
+        results = dict()
+        for name, ext in self.MODE_OUTPUTS.items():
+            file_path = os.path.join(target_dir, f"{self.name}.{ext}")
+            results[name] = OutputReader(file_path=file_path).get_content()
+        return results
 
     def show_geometry(self):
         with TemporaryDirectory(prefix="avl_") as working_dir:

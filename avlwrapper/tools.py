@@ -1,5 +1,10 @@
 import copy
+import itertools
 from itertools import product
+import re
+
+
+FLOATING_POINT_PATTERN = r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 
 
 def create_sweep_cases(base_case, parameters):
@@ -60,3 +65,49 @@ def show_image(image_path, rotate=True):
     plt.imshow(image)
     plt.axis("off")
     plt.show()
+
+
+def get_vars(lines):
+    # Search for "key = value" tuples and store in a dictionary
+    result = dict()
+    for name, value in re.findall(
+        rf"(\S+)\s+=\s*({FLOATING_POINT_PATTERN})", "\n".join(lines)
+    ):
+        result[name] = float(value)
+    return result
+
+
+def line_to_floats(line, limit=None):
+    elements = line.split()
+    counter = itertools.count() if limit is None else range(limit)
+
+    lst = []
+    for el, _ in zip(elements, counter):
+        if el.startswith("!") or el.startswith("#"):  # rest of the line is a comment
+            break
+        lst.append(float(el))
+    return lst
+
+
+def multi_split(str_in, *seps):
+    str_lst = [str_in]
+    for sep in seps:
+        new_lst = []
+        for s in str_lst:
+            new_lst.extend(s.split(sep))
+        str_lst = new_lst
+    # remove empty strings
+    str_lst = list(filter(lambda s: s, str_lst))
+    return str_lst
+
+
+def line_is_not_empty(line):
+    return line != ""
+
+
+def line_has_no_comment(line):
+    return not (line.startswith("!") or line.startswith("#"))
+
+
+def line_is_not_separator(line):
+    return set(line) != {"-"}

@@ -92,6 +92,19 @@ def test_shear_forces():
     assert res["Nacelle"]["Mx/(q*Bref*Sref)"][-1] == pytest.approx(0.00000, 1e-6)
 
 
+def test_system_matrix():
+    res = get_output("b737.sys")
+    assert res["u"][0] == pytest.approx(-0.0001, 1e-6)
+    assert res["psi"][9] == pytest.approx(249.8599, 1e-6)
+    assert res["rudder"][-1] == pytest.approx(0.000, 1e-6)
+
+
+def test_eigen_values():
+    res = get_output("b737.eig")
+    assert res["1"][0] == pytest.approx((-0.29018355, 1.9011338), 1e-6)
+    assert res["1"][-1] == pytest.approx((-0.98895929E-03, -0.51790625E-01), 1e-6)
+
+
 def test_get_vars_output_scientific_format():
     res = get_output("aircraft-1.scientific.sb")
     assert res["CXu"] == pytest.approx(-0.002741, abs=1e-6)

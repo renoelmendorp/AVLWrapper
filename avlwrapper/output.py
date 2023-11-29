@@ -2,6 +2,7 @@ import os.path
 import re
 
 from avlwrapper import logger
+from avlwrapper.tools import FLOATING_POINT_PATTERN, get_vars, line_is_not_empty, line_has_no_comment
 
 
 # pattern to match a floating point number with:
@@ -11,7 +12,6 @@ from avlwrapper import logger
 # (optionally) an exponent
 #   - with lowercase 'e' or uppercase 'E'
 #   - (optionally) with a '+' or '-' before the power
-FLOATING_POINT_PATTERN = r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 
 
 class FileReader:
@@ -24,16 +24,6 @@ class FileReader:
 
     def parse(self):
         raise NotImplementedError
-
-    @staticmethod
-    def get_vars(lines):
-        # Search for "key = value" tuples and store in a dictionary
-        result = dict()
-        for name, value in re.findall(
-            rf"(\S+)\s+=\s*({FLOATING_POINT_PATTERN})", "".join(lines)
-        ):
-            result[name] = float(value)
-        return result
 
     @staticmethod
     def get_table_start_end(lines, header_re):
@@ -115,7 +105,7 @@ class GenericReader(FileReader):
 
 class TotalsFileReader(FileReader):
     def parse(self):
-        return self.get_vars(self.lines)
+        return get_vars(self.lines)
 
 
 class _ForcesFileReader(FileReader):
@@ -280,7 +270,7 @@ class StabilityFileReader(FileReader):
         return self.lines[idx[0] : idx[1] + 1]
 
     def parse(self):
-        all_vars = self.get_vars(self.var_lines)
+        all_vars = get_vars(self.var_lines)
         controls = self.get_controls(self.lines)
         all_vars = self.replace_controls(all_vars, controls)
 
@@ -336,6 +326,36 @@ class ShearFileReader(StripFileReader):
         return results
 
 
+class SystemMatrixFileReader(FileReader):
+    def parse(self):
+        # remove empty lines
+        lines = list(filter(line_is_not_empty,
+                            [s.strip() for s in self.lines]))
+        header = lines[0].replace("|", " ").split()
+        result = {key: [] for key in header}
+        for line in lines[1:]:
+            values = self.get_line_values(line)
+            for key, val in zip(header, values):
+                result[key].append(val)
+        return result
+
+
+class EigenValuesFileReader(GenericReader):
+    def parse(self):
+        lines = filter(lambda s: line_has_no_comment(s) and line_is_not_empty(s),
+                       [s.strip() for s in self.lines])
+        result = dict()
+        for line in lines:
+            values = self.get_line_values(line)
+            case_nr = str(int(values[0]))
+            eigen_val = (values[1], values[2])
+            if case_nr in result:
+                result[case_nr].append(eigen_val)
+            else:
+                result[case_nr] = [eigen_val]
+        return result
+
+
 class OutputReader:
     """Reads AVL output files. Type is determined based on file extension"""
 
@@ -349,6 +369,8 @@ class OutputReader:
         ".sb": BodyAxisFileReader,
         ".hm": HingeFileReader,
         ".vm": ShearFileReader,
+        ".sys": SystemMatrixFileReader,
+        ".eig": EigenValuesFileReader
     }
 
     def __init__(self, file_path):

@@ -13,8 +13,9 @@ CDIR = os.path.dirname(os.path.realpath(__file__))
 RES_DIR = os.path.join(CDIR, "resources")
 AVL_FILE = os.path.join(RES_DIR, "b737.avl")
 CASE_FILE = os.path.join(RES_DIR, "b737.run")
+MASS_FILE = os.path.join(RES_DIR, "b737.mass")
 
-OUT_FILES = ["st", "sb", "ft", "fn", "fs", "fe", "fb", "hm", "vm"]
+OUT_FILES = ["st", "sb", "ft", "fn", "fs", "fe", "fb", "hm", "vm", "sys", "eig"]
 
 B737_SURFACES = [
     "Wing",
@@ -36,12 +37,18 @@ def manual_run():
         with open(run_file_path, "w") as run_file:
             run_file.write("load b737.avl\n")
             run_file.write("case b737.run\n")
+            run_file.write("mass b737.mass\n")
+            run_file.write("mset\n\n")
             run_file.write("oper\nx\n")
             for f in OUT_FILES:
                 run_file.write(f"{f}\nb737.{f}\n")
+            run_file.write("\n\nmode\nn\n")
+            run_file.write("s\nb737.sys\n")
+            run_file.write("w\nb737.eig\n")
             run_file.write("\n\nq\n")
         shutil.copy(os.path.join(RES_DIR, "b737.avl"), working_dir)
         shutil.copy(os.path.join(RES_DIR, "b737.run"), working_dir)
+        shutil.copy(os.path.join(RES_DIR, "b737.mass"), working_dir)
         shutil.copy(os.path.join(RES_DIR, "a1.dat"), working_dir)
         with open(run_file_path) as ifile:
             proc = subprocess.Popen(
@@ -65,6 +72,11 @@ def run_case():
     return avl.Case.from_file(CASE_FILE)[0]
 
 
+@pytest.fixture()
+def mass_dist():
+    return avl.MassDistribution.from_file(MASS_FILE)
+
+
 def test_model(model):
     for surf in B737_SURFACES:
         assert surf in [s.name for s in model.surfaces]
@@ -74,9 +86,15 @@ def test_case(run_case):
     assert run_case
 
 
-def test_b737_session(model, run_case, manual_run):
-    session = avl.Session(geometry=model, cases=[run_case])
-    results = session.run_all_cases()[run_case.number]
+def test_mass_dist(mass_dist):
+    assert mass_dist
+
+
+def test_b737_session(model, run_case, mass_dist, manual_run):
+    session = avl.Session(geometry=model, cases=[run_case], mass_dist=mass_dist)
+    case_results = session.run_all_cases()[run_case.number]
+    mode_results = session.run_mode_analysis()
+    all_results = case_results | mode_results
 
     def check_all_entries(result, reference):
         for key in result:
@@ -84,16 +102,14 @@ def test_b737_session(model, run_case, manual_run):
                 check_all_entries(result[key], reference[key])
             elif isinstance(result[key], list):
                 for el, ref in zip(result[key], reference[key]):
-                    if isnan(el) or isnan(ref):
-                        continue
-                    else:
-                        assert el == pytest.approx(ref, 1e-6)
+                    assert el == pytest.approx(ref, 1e-6)
             else:
                 assert result[key] == pytest.approx(reference[key], 1e-6)
 
-    for res_key in results:
+    all_outputs = session.OUTPUTS | session.MODE_OUTPUTS
+    for res_key in all_results:
         try:
-            man_key = session.OUTPUTS[res_key]
+            man_key = all_outputs[res_key]
         except KeyError:
             continue
-        check_all_entries(results[res_key], manual_run[man_key])
+        check_all_entries(all_results[res_key], manual_run[man_key])

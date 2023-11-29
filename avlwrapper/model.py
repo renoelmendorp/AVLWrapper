@@ -1,13 +1,21 @@
 from abc import ABC
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
-from enum import Enum, IntEnum, auto
-import itertools
+from enum import Enum, IntEnum, StrEnum, auto
+import operator
 import os
 import re
 from typing import Iterable, List, Optional, NamedTuple, Union
 
 from avlwrapper import VERSION, logger
+from avlwrapper.tools import (
+    get_vars,
+    line_to_floats,
+    multi_split,
+    line_is_not_empty,
+    line_has_no_comment,
+    line_is_not_separator,
+)
 
 
 class InputError(ValueError):
@@ -23,16 +31,19 @@ class InputError(ValueError):
 class Input(ABC):
     @classmethod
     def from_lines(cls, lines_in: List[str]):
+        # strip leading and trailing spaces
+        lines = map(lambda l: l.strip(), lines_in)
+
         # remove commented lines
-        lines = list(filter(line_has_no_comment, lines_in))
+        lines = filter(line_has_no_comment, lines)
 
         # remove empty lines
-        lines = list(filter(line_is_not_empty, lines))
+        lines = filter(line_is_not_empty, lines)
 
         # remove lines with only "-" and spaces
-        lines = list(filter(line_is_not_separator, lines))
+        lines = filter(line_is_not_separator, lines)
 
-        return cls._from_lines(lines)
+        return cls._from_lines(list(lines))
 
     @classmethod
     def _from_lines(cls, lines_in: List[str]):
@@ -153,6 +164,18 @@ class Spacial(NamedTuple):
 
 Point = Spacial
 Vector = Spacial
+
+
+class Inertia(NamedTuple):
+    Ixx: float = 0.0
+    Iyy: float = 0.0
+    Izz: float = 0.0
+    Ixy: float = 0.0
+    Ixz: float = 0.0
+    Iyz: float = 0.0
+
+    def __str__(self):
+        return f"{self.Ixx} {self.Iyy} {self.Izz} {self.Ixy} {self.Ixz} {self.Iyz}"
 
 
 class IntStrEnum(IntEnum):
@@ -1128,45 +1151,188 @@ class Case(Input):
         return case_str
 
 
+@dataclass
+class MassItem(ModelInput):
+    mass: float
+    position: Point
+    inertia: Optional[Inertia] = None
+    name: Optional[str] = None
+
+    @classmethod
+    def _from_lines(cls, lines_in):
+        if len(lines_in) != 1:
+            raise InputError(lines_in)
+        return cls(**cls._read_mass_line(lines_in[0]))
+
+    @staticmethod
+    def _read_mass_line(line):
+        values = line_to_floats(line)
+
+        kwargs = {"mass": values[0], "position": Point(*values[1:4])}
+        if len(values) > 4:
+            kwargs["inertia"] = Inertia(*values[4:])
+        return kwargs
+
+    def __str__(self):
+        mass_str = f"{self.mass} {self.position}"
+        if self.inertia:
+            mass_str += f" {self.inertia}"
+        if self.name:
+            mass_str += f" !{self.name}"
+        return mass_str
+
+
+class ModifierType(StrEnum):
+    multiplication = auto()
+    addition = auto()
+
+
+@dataclass
+class MassModifier(MassItem):
+    mod_type: ModifierType = None
+
+    def __post_init__(self):
+        if self.mod_type == ModifierType.addition:
+            default_val = 0.0
+        elif self.mod_type == ModifierType.multiplication:
+            default_val = 1.0
+        else:
+            raise InputError("Invalid mass modifier!")
+
+        if self.mass is None:
+            self.mass = default_val
+
+        if self.position is None:
+            self.position = Vector(*[default_val] * 3)
+
+        if self.inertia is None:
+            self.inertia = Inertia(*[default_val] * 6)
+
+    def apply(self, mass_item: MassItem):
+        if self.mod_type == ModifierType.addition:
+            op = operator.add
+        else:
+            op = operator.mul
+
+        return MassItem(
+            mass=op(mass_item.mass, self.mass),
+            position=Point(*map(op, mass_item.position, self.position)),
+            inertia=Inertia(*map(op, mass_item.inertia, self.inertia)),
+        )
+
+    @classmethod
+    def _from_lines(cls, lines_in):
+        if len(lines_in) != 1:
+            raise InputError(lines_in)
+
+        line = lines_in[0]
+        if line[0] == "+":
+            mod_type = ModifierType.addition
+        elif line[0] == "*":
+            mod_type = ModifierType.multiplication
+        else:
+            raise InputError(lines_in)
+
+        kwargs = cls._read_mass_line(line[1:].strip())
+
+        return cls(mod_type=mod_type, **kwargs)
+
+    def __str__(self):
+        if self.mod_type == ModifierType.addition:
+            prefix = "+"
+        else:
+            prefix = "*"
+        return f"{prefix} {super().__str__()}"
+
+
+@dataclass
+class MassDistribution(ModelInput):
+    """
+    Mass distribution object
+
+    :param List[MassItem] masses: List of mass items
+    :param List[MassModifier]: modifiers changing the mass distribution data
+
+    :param float length_scaling: scaling to be used for trim and eigenmode calculations
+                                 Value will also scale all lengths and areas in the AVL input file
+    :param float mass_scaling: scaling to be used for trim and eigenmode calculations
+    :param float time_scaling: scaling to be used for trim and eigenmode calculations
+    :param float gravity: gravity default
+    :param float density: density default
+    """
+
+    masses: List[Union[MassItem, MassModifier]]
+    length_scaling: float = 1.0
+    mass_scaling: float = 1.0
+    time_scaling: float = 1.0
+    density: float = 1.225
+    gravity: float = 9.81
+
+    @classmethod
+    def _from_lines(cls, lines_in):
+        kwargs = dict()
+
+        # get defaults
+        defaults = get_vars(lines_in)
+        for key, arg in [
+            ("Lunit", "length_scaling"),
+            ("Munit", "mass_scaling"),
+            ("Tunit", "time_scaling"),
+            ("g", "gravity"),
+            ("rho", "density"),
+        ]:
+            if key in defaults:
+                kwargs[arg] = defaults[key]
+
+        # parse mass table
+        masses = []
+        for line in lines_in:
+            if line[0].isdigit():
+                masses.append(MassItem.from_lines([line]))
+            elif line.startswith("+") or line.startswith("*"):
+                masses.append(MassModifier.from_lines([line]))
+        kwargs["masses"] = masses
+
+        return cls(**kwargs)
+
+    def simplify(self):
+        adder = None
+        multiplier = None
+        new_masses = []
+        for item in self.masses:
+            if type(item) is MassItem:
+                if multiplier:
+                    item = multiplier.apply(item)
+                if adder:
+                    item = adder.apply(item)
+                new_masses.append(item)
+            elif type(item) is MassModifier:
+                if item.mod_type == ModifierType.addition:
+                    adder = item
+                else:
+                    multiplier = item
+        self.masses = new_masses
+
+    def __str__(self):
+        header_str = (
+            f"Lunit = {self.length_scaling}\n"
+            f"Munit = {self.mass_scaling}\n"
+            f"Tunit = {self.time_scaling}\n"
+            f"g = {self.gravity}\n"
+            f"rho = {self.density}\n\n"
+        )
+
+        table_str = (
+            "#  mass     x     y     z       Ixx    Iyy    Izz  " "[ Ixy  Ixz  Iyz ]\n"
+        )
+        table_str += "\n".join(map(str, self.masses))
+
+        return header_str + table_str + "\n"
+
+
 def optional_str(obj):
     """Converts to string if object is not None"""
     return str(obj) if obj is not None else ""
-
-
-def line_to_floats(line, limit=None):
-    elements = line.split()
-    counter = itertools.count() if limit is None else range(limit)
-
-    lst = []
-    for el, _ in zip(elements, counter):
-        if el.startswith("!") or el.startswith("#"):  # rest of the line is a comment
-            break
-        lst.append(float(el))
-    return lst
-
-
-def multi_split(str_in, *seps):
-    str_lst = [str_in]
-    for sep in seps:
-        new_lst = []
-        for s in str_lst:
-            new_lst.extend(s.split(sep))
-        str_lst = new_lst
-    # remove empty strings
-    str_lst = list(filter(lambda s: s, str_lst))
-    return str_lst
-
-
-def line_is_not_empty(line):
-    return line.strip() != ""
-
-
-def line_has_no_comment(line):
-    return not (line.startswith("!") or line.startswith("#"))
-
-
-def line_is_not_separator(line):
-    return set(line.strip()) != {"-"}
 
 
 ParameterType = namedtuple("ParameterType", ["cls", "attr", "attr_type"])
