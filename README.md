@@ -6,14 +6,10 @@ Currently implemented:
 
 * Geometry definition
 * Case definition
+* Mass distribution definition
 * Running operating-point run cases
+* Eigen-mode analysis
 * Results parsing
-
-Not implemented (yet):
-
-* Mass definition
-* Eigen-mode analyses
-* Time-domain analyses
 
 ## Installation
 AVLWrapper can be installed from PyPI:
