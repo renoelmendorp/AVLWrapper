@@ -1,10 +1,10 @@
+import operator
+import os
+import re
 from abc import ABC
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, StrEnum, auto
-import operator
-import os
-import re
 from typing import Iterable, List, Optional, NamedTuple, Union
 
 from avlwrapper import VERSION, logger

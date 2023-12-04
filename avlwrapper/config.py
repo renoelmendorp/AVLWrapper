@@ -1,10 +1,10 @@
-from configparser import ConfigParser
 import itertools
 import logging
 import os
 import os.path
 import shutil
 import sys
+from configparser import ConfigParser
 
 if os.name == "nt":
     import winreg

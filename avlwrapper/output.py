@@ -2,7 +2,12 @@ import os.path
 import re
 
 from avlwrapper import logger
-from avlwrapper.tools import FLOATING_POINT_PATTERN, get_vars, line_is_not_empty, line_has_no_comment
+from avlwrapper.tools import (
+    FLOATING_POINT_PATTERN,
+    get_vars,
+    line_is_not_empty,
+    line_has_no_comment,
+)
 
 
 # pattern to match a floating point number with:
@@ -179,7 +184,6 @@ class StripFileReader(FileReader):
         return table_dict
 
     def parse_tables(self, table_content, ignore_first=True, skip_ydup=False):
-
         strip_results = dict()
         # sort so (YDUP) surfaces are always behind the main surface
         for name in sorted(table_content.keys()):
@@ -329,8 +333,7 @@ class ShearFileReader(StripFileReader):
 class SystemMatrixFileReader(FileReader):
     def parse(self):
         # remove empty lines
-        lines = list(filter(line_is_not_empty,
-                            [s.strip() for s in self.lines]))
+        lines = list(filter(line_is_not_empty, [s.strip() for s in self.lines]))
         header = lines[0].replace("|", " ").split()
         result = {key: [] for key in header}
         for line in lines[1:]:
@@ -342,8 +345,10 @@ class SystemMatrixFileReader(FileReader):
 
 class EigenValuesFileReader(GenericReader):
     def parse(self):
-        lines = filter(lambda s: line_has_no_comment(s) and line_is_not_empty(s),
-                       [s.strip() for s in self.lines])
+        lines = filter(
+            lambda s: line_has_no_comment(s) and line_is_not_empty(s),
+            [s.strip() for s in self.lines],
+        )
         result = dict()
         for line in lines:
             values = self.get_line_values(line)
@@ -370,7 +375,7 @@ class OutputReader:
         ".hm": HingeFileReader,
         ".vm": ShearFileReader,
         ".sys": SystemMatrixFileReader,
-        ".eig": EigenValuesFileReader
+        ".eig": EigenValuesFileReader,
     }
 
     def __init__(self, file_path):

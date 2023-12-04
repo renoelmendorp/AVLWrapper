@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 import tkinter as tk
 
-from avlwrapper import Case, OutputReader, default_config, logger
+from avlwrapper import OutputReader, default_config, logger
 
 
 class Session:
@@ -29,7 +29,9 @@ class Session:
         "SystemMatrix": "sys",
     }
 
-    def __init__(self, geometry, cases=None, mass_dist=None, name=None, config=default_config):
+    def __init__(
+        self, geometry, cases=None, mass_dist=None, name=None, config=default_config
+    ):
         """
         :param avlwrapper.Aircraft geometry: AVL geometry
         :param List[Case] cases: Cases to include in input files
@@ -196,7 +198,8 @@ class Session:
         return self.run_avl(
             cmds=self._run_mode_analysis_cmds,
             pre_fn=self._write_analysis_files,
-            post_fn=self._read_mode_results)
+            post_fn=self._read_mode_results,
+        )
 
     def _get_avl_bin(self):
         # guard for avl not being present on the system.

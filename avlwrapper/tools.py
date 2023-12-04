@@ -1,8 +1,7 @@
 import copy
 import itertools
-from itertools import product
 import re
-
+from itertools import product
 
 FLOATING_POINT_PATTERN = r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 
