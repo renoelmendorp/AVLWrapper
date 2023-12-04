@@ -1,5 +1,3 @@
-""" AVL Wrapper session and input classes
-"""
 import glob
 import os
 import shutil
@@ -93,7 +91,7 @@ class Session:
         outputs = {}
         for output in requested_outputs:
             if output not in lc_outputs:
-                raise InputError("Invalid output: {}".format(output))
+                raise ValueError(f"Invalid output: {output}")
             name, ext = lc_outputs[output]
             outputs[name] = ext
         return outputs
@@ -116,7 +114,7 @@ class Session:
     def _write_cases(self, target_dir):
         # AVL is limited to 25 cases
         if len(self.cases) > 25:
-            raise InputError(
+            raise RuntimeError(
                 "Number of cases is larger than " "the supported maximum of 25."
             )
 
@@ -385,10 +383,6 @@ class _CloseWindow(tk.Frame):
         if self._on_open is not None:
             self._on_open()
         tk.Frame.mainloop(self, n)
-
-
-class InputError(Exception):
-    pass
 
 
 def run_with_close_window(avl, cmds):
