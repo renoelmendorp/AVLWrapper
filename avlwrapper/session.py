@@ -1,54 +1,53 @@
+"""AVL Wrapper session and input classes"""
+
+import copy
 import glob
 import os
-import shutil
 import subprocess
+import shutil
 from tempfile import TemporaryDirectory
 
-import tkinter as tk
-
-from avlwrapper import OutputReader, default_config, logger
+from avlwrapper.config import default_config, is_enabled, logger
+from avlwrapper.errors import AvlExecutionError, InputError, OutputError
+from avlwrapper.output import CASE_OUTPUTS, MODE_OUTPUTS, OutputReader
 
 
 class Session:
     """Main class which handles AVL runs and input/output"""
 
-    OUTPUTS = {
-        "Totals": "ft",
-        "SurfaceForces": "fn",
-        "BodyForces": "fb",
-        "StripForces": "fs",
-        "ElementForces": "fe",
-        "StabilityDerivatives": "st",
-        "BodyAxisDerivatives": "sb",
-        "HingeMoments": "hm",
-        "StripShearMoments": "vm",
-    }
+    OUTPUTS = {output.name: output.extension for output in CASE_OUTPUTS}
 
-    MODE_OUTPUTS = {
-        "EigenValues": "eig",
-        "SystemMatrix": "sys",
-    }
+    MODE_OUTPUTS = {output.name: output.extension for output in MODE_OUTPUTS}
 
     def __init__(
-        self, geometry, cases=None, mass_dist=None, name=None, config=default_config
+        self,
+        geometry,
+        cases=None,
+        mass_dist=None,
+        name=None,
+        config=default_config,
+        timeout=None,
     ):
         """
         :param avlwrapper.Aircraft geometry: AVL geometry
-        :param List[Case] cases: Cases to include in input files
+        :param List[Case] cases: Cases to include in input files. The session
+            works on copies, the given cases are not modified.
         :param Optional[MassDistribution] mass_dist: Mass distribution
         :param str name: session name, defaults to geometry name
         :param avlwrapper.Configuration config: (optional) dictionary
             containing setting
+        :param Optional[float] timeout: (optional) maximum run time of AVL
+            in seconds
         """
 
         self.config = config
+        self.config.apply_log_level()
+        self.timeout = timeout
 
         self.geometry = geometry
         self.cases = self._prepare_cases(cases)
         self.name = name or self.geometry.name
         self.mass_dist = mass_dist
-
-        self._results = None
 
     def _prepare_cases(self, cases):
         # guard for cases=None
@@ -64,6 +63,8 @@ class Session:
             "cd_p": self.geometry.cd_p,
         }
 
+        # the cases are owned by the caller, so work on copies
+        cases = copy.deepcopy(list(cases))
         for idx, case in enumerate(cases):
             case.number = idx + 1
             for key, val in geom_defaults.items():
@@ -86,7 +87,7 @@ class Session:
     @property
     def requested_output(self):
         requested_outputs = {
-            k for k, v in self.config["output"].items() if v.lower() == "yes"
+            k.lower() for k, v in self.config["output"].items() if is_enabled(v)
         }
         lc_outputs = {k.lower(): (k, v) for k, v in self.OUTPUTS.items()}
 
@@ -120,6 +121,10 @@ class Session:
                 "Number of cases is larger than " "the supported maximum of 25."
             )
 
+        valid_controls = self.geometry.control_names
+        for case in self.cases:
+            case.validate(valid_controls)
+
         case_file_path = os.path.join(target_dir, self.case_file)
 
         with open(case_file_path, "w") as case_file:
@@ -138,12 +143,44 @@ class Session:
         with TemporaryDirectory(prefix="avl_") as working_dir:
             pre_fn(working_dir)
 
-            process = self._get_avl_process(working_dir)
-            process.communicate(input=cmds.encode())
-            process.wait()
+            output = self._run_avl_process(cmds, working_dir)
 
-            ret = post_fn(working_dir)
+            # AVL doesn't reliably report failures with its exit status, they
+            # show up as missing or incomplete output files
+            try:
+                ret = post_fn(working_dir)
+            except (FileNotFoundError, OutputError) as e:
+                raise AvlExecutionError(
+                    f"AVL did not produce the expected output ({e})", output
+                ) from e
         return ret
+
+    def _run_avl_process(self, cmds, working_dir):
+        try:
+            process = subprocess.run(
+                [self._get_avl_bin()],
+                input=cmds.encode(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                cwd=working_dir,
+                timeout=self.timeout,
+            )
+        except subprocess.TimeoutExpired as e:
+            output = (e.stdout or b"").decode(errors="replace")
+            raise AvlExecutionError(
+                f"AVL did not finish within {self.timeout} s", output
+            ) from e
+
+        output = process.stdout.decode(errors="replace")
+        if self.config["show_stdout"]:
+            print(output)
+        logger.debug(output)
+
+        if process.returncode != 0:
+            raise AvlExecutionError(
+                f"AVL exited with status {process.returncode}", output
+            )
+        return output
 
     def _get_cases_run_cmds(self, cases):
         cmds = "oper\n"
@@ -213,13 +250,13 @@ class Session:
             return self.config["avl_bin"]
 
     def _get_avl_process(self, working_dir):
-        stdin = subprocess.PIPE
-        stdout = open(os.devnull, "w") if not self.config["show_stdout"] else None
+        """Starts AVL for interactive use: commands are written to stdin"""
+        stdout = None if self.config["show_stdout"] else subprocess.DEVNULL
 
         # Buffer size = 0 required for direct stdin/stdout access
         return subprocess.Popen(
             args=[self._get_avl_bin()],
-            stdin=stdin,
+            stdin=subprocess.PIPE,
             stdout=stdout,
             bufsize=0,
             cwd=working_dir,
@@ -256,19 +293,25 @@ class Session:
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
-    def _get_plot(self, target_dir, plot_name, file_format, resolution):
+    def _get_plot(self, target_dir, plot_name, file_format, resolution, output_dir):
         in_file = os.path.join(target_dir, "plot.ps")
-        out_file = os.path.join(os.getcwd(), plot_name + ".{}".format(file_format))
+        if not os.path.exists(in_file):
+            raise FileNotFoundError(in_file)
+        if output_dir is None:
+            output_dir = os.getcwd()
+        out_file = os.path.join(output_dir, plot_name + ".{}".format(file_format))
         if file_format == "ps":
             shutil.copyfile(src=in_file, dst=out_file)
             return [out_file]
+        gs_devices = {"pdf": "pdfwrite", "png": "pngalpha", "jpeg": "jpeg"}
+        if file_format not in gs_devices:
+            raise InputError(f"Invalid file format: {file_format}")
         if "gs_bin" not in self.config.settings:
-            raise Exception(
+            raise FileNotFoundError(
                 "Ghostscript should be installed"
                 " and enabled in the configuration file"
             )
         gs = self.config.settings["gs_bin"]
-        gs_devices = {"pdf": "pdfwrite", "png": "pngalpha", "jpeg": "jpeg"}
         cmd = [
             gs,
             "-dBATCH",
@@ -276,20 +319,27 @@ class Session:
             "-r{}".format(resolution),
             "-q",
             "-sDEVICE={}".format(gs_devices[file_format]),
-            '-sOutputFile="{}"'.format(out_file),
+            "-sOutputFile={}".format(out_file),
             in_file,
         ]
-        subprocess.call(cmd)
+        process = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        if process.returncode != 0:
+            raise AvlExecutionError(
+                f"Ghostscript exited with status {process.returncode}",
+                process.stdout.decode(errors="replace"),
+            )
         if "%d" in out_file:
-            return glob.glob(out_file.replace("%d", "*"))
+            return sorted(glob.glob(out_file.replace("%d", "*")))
         else:
             return [out_file]
 
-    def save_geometry_plot(self, file_format="ps", resolution=300):
+    def save_geometry_plot(self, file_format="ps", resolution=300, output_dir=None):
         """Save the geometry plot to a file.
 
         :param str file_format: Either "pdf", "jpeg", "png", or "ps"
         :param int resolution: Resolution (dpi) of output file
+        :param Optional[str] output_dir: Directory to save the plot in,
+            defaults to the working directory
         """
         plot_name = self.name + "-geometry"
         cmds = self._hide_plot_cmds
@@ -298,7 +348,9 @@ class Session:
         return self.run_avl(
             cmds=cmds,
             pre_fn=self._write_geometry,
-            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution),
+            post_fn=lambda d: self._get_plot(
+                d, plot_name, file_format, resolution, output_dir
+            ),
         )
 
     @property
@@ -319,11 +371,13 @@ class Session:
             avl = self._get_avl_process(working_dir)
             run_with_close_window(avl, cmds)
 
-    def save_trefftz_plots(self, file_format="ps", resolution=300):
+    def save_trefftz_plots(self, file_format="ps", resolution=300, output_dir=None):
         """Save the Trefftz plots to a file.
 
         :param str file_format: Either "pdf", "jpeg", "png" or "ps"
         :param int resolution: Resolution (dpi) of output file
+        :param Optional[str] output_dir: Directory to save the plots in,
+            defaults to the working directory
         """
         plot_name = self.name + "-trefftz-%d"
         cmds = self._hide_plot_cmds
@@ -339,7 +393,9 @@ class Session:
         return self.run_avl(
             cmds=cmds,
             pre_fn=self._write_analysis_files,
-            post_fn=lambda d: self._get_plot(d, plot_name, file_format, resolution),
+            post_fn=lambda d: self._get_plot(
+                d, plot_name, file_format, resolution, output_dir
+            ),
         )
 
     @staticmethod
@@ -358,46 +414,32 @@ class Session:
         logger.info("Input files written to: {}".format(path))
 
 
-class _CloseWindow(tk.Frame):
-    def __init__(self, on_open=None, on_close=None, master=None):
-        # On Python 2, tk.Frame is an old-style class
-        tk.Frame.__init__(self, master)
-
-        # Make sure window is on top
-        master.call("wm", "attributes", ".", "-topmost", "1")
-        self.pack()
-        self._on_open = on_open
-        self._on_close = on_close
-        self.close_button = self.create_button()
-
-    def create_button(self):
-        # add quit method to button press
-        def on_close_wrapper():
-            if self._on_close is not None:
-                self._on_close()
-            top = self.winfo_toplevel()
-            top.destroy()
-
-        close_button = tk.Button(self, text="Close", command=on_close_wrapper)
-        close_button.pack()
-        return close_button
-
-    def mainloop(self, n=0):
-        if self._on_open is not None:
-            self._on_open()
-        tk.Frame.mainloop(self, n)
-
-
 def run_with_close_window(avl, cmds):
+    # tkinter is only needed for the interactive plots, so it's imported here
+    # to keep the rest of the wrapper usable on systems without a GUI toolkit
+    try:
+        import tkinter as tk
+    except ImportError as e:
+        raise ImportError(
+            "tkinter is required to show plots interactively, "
+            "use the save_*_plot methods instead"
+        ) from e
+
     quit_cmd = "\n\nquit\n"
     tk_root = tk.Tk()
 
-    def open_fn():
-        avl.stdin.write(cmds.encode())
+    # Make sure window is on top
+    tk_root.call("wm", "attributes", ".", "-topmost", "1")
+    frame = tk.Frame(tk_root)
+    frame.pack()
 
-    def close_fn():
+    def on_close():
         avl.stdin.write(quit_cmd.encode())
+        avl.stdin.close()
         avl.wait()
+        tk_root.destroy()
 
-    app = _CloseWindow(on_open=open_fn, on_close=close_fn, master=tk_root)
-    app.mainloop()
+    tk.Button(frame, text="Close", command=on_close).pack()
+
+    avl.stdin.write(cmds.encode())
+    frame.mainloop()

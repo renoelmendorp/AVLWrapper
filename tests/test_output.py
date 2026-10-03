@@ -4,7 +4,6 @@ import pytest
 
 import avlwrapper as avl
 
-
 THIS_DIR = os.path.dirname(os.path.realpath(__file__))
 RES_DIR = os.path.join(THIS_DIR, "resources")
 
@@ -101,8 +100,8 @@ def test_system_matrix():
 
 def test_eigen_values():
     res = get_output("b737.eig")
-    assert res["1"][0] == pytest.approx((-0.29018355, 1.9011338), 1e-6)
-    assert res["1"][-1] == pytest.approx((-0.98895929E-03, -0.51790625E-01), 1e-6)
+    assert res[1][0] == pytest.approx((-0.29018355, 1.9011338), 1e-6)
+    assert res[1][-1] == pytest.approx((-0.98895929e-03, -0.51790625e-01), 1e-6)
 
 
 def test_get_vars_output_scientific_format():

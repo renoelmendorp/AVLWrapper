@@ -42,3 +42,28 @@ v0.3.4:
 v0.4.0:
     - Added mass distribution input
     - Added eigen-mode analysis and system matrix output
+
+V0.4.1:
+    - Lots of bugfixes:
+        - Profile drag (CDCL) on more than one section was dropped or crashed
+          while parsing input files
+        - Negative masses were dropped while parsing mass files
+        - Mass modifiers on masses without inertia
+        - Malformed BODY header now raises an InputError
+        - Unreadable error messages of InputError
+        - Configuration.local_copy() now copies to the current working directory
+        - Ghostscript output path
+    - importing avlwrapper no longer requires tkinter
+    - Single exception hierarchy, available as avlwrapper.AvlError, InputError,
+      AvlExecutionError and OutputError
+    - AVL failures are detected and raise an AvlExecutionError with the AVL output
+    - Session accepts a timeout
+    - Plots can be saved to a directory with the output_dir argument
+    - Added Case.validate(), a Case can be printed without a Session
+  ! - Session no longer modifies the given cases, use Session.cases to get the
+      cases as used in the run
+  ! - Unknown keywords in a Case which are not a control of the geometry now
+      raise an InputError when running the Session
+  ! - Eigenvalues are now indexed by case number as int instead of str
+  ! - The AVL executable is no longer searched for in sys.path
+  ! - PrintOutput prints the AVL output after the run instead of during the run

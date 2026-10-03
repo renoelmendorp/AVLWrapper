@@ -3,21 +3,26 @@
 import os.path
 from setuptools import setup, find_packages
 
-from avlwrapper import VERSION as AVL_VERSION
-
 current_dir = os.path.abspath(os.path.dirname(__file__))
+
+# read the version without importing the package
+version_globals = {}
+with open(os.path.join(current_dir, "avlwrapper", "_version.py")) as fh:
+    exec(fh.read(), version_globals)
+AVL_VERSION = version_globals["VERSION"]
 
 # dependencies; currently none
 dependencies = []
 
 # include files
-include_files = ['*.cfg']
+include_files = ["*.cfg"]
 
 # include README as long description
 readme_path = os.path.join(current_dir, "README.md")
 try:
     import pypandoc
-    long_description = pypandoc.convert_file(readme_path, 'rst')
+
+    long_description = pypandoc.convert_file(readme_path, "rst")
 except ImportError:
     with open(readme_path, "r") as fh:
         long_description = fh.read()
@@ -36,12 +41,11 @@ setup(
         "Intended Audience :: Science/Research",
         "Topic :: Scientific/Engineering",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
-        "Operating System :: OS Independent"
+        "Operating System :: OS Independent",
     ],
     packages=find_packages(),
     install_requires=dependencies,
+    extras_require={"plot": ["numpy", "matplotlib"]},
     include_package_data=True,
-    package_data={
-        '': include_files
-    }
+    package_data={"": include_files},
 )

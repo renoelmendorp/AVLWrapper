@@ -3,7 +3,6 @@ import logging
 import os
 import os.path
 import shutil
-import sys
 from configparser import ConfigParser
 
 if os.name == "nt":
@@ -13,6 +12,7 @@ CONFIG_FILE = "config.cfg"
 MODULE_DIR = os.path.dirname(__file__)
 
 logger = logging.getLogger("avlwrapper")
+logger.addHandler(logging.NullHandler())
 
 
 class Configuration:
@@ -49,19 +49,22 @@ class Configuration:
             pass
 
         # show stdout of avl
-        show_output = parser["environment"]["printoutput"]
-        settings["show_stdout"] = show_output == "yes"
+        settings["show_stdout"] = is_enabled(parser["environment"]["printoutput"])
 
         # Output files
-        settings["output"] = {k: v for k, v in parser["output"].items() if v == "yes"}
+        settings["output"] = dict(parser["output"].items())
 
-        # set log level
         settings["loglevel"] = parser["environment"]["loglevel"]
-        logger.setLevel(settings["loglevel"])
 
         return settings
 
-    def local_copy(self, target=os.getcwd()):
+    def apply_log_level(self):
+        """Sets the level of the avlwrapper logger to the configured level"""
+        logger.setLevel(self["loglevel"])
+
+    def local_copy(self, target=None):
+        if target is None:
+            target = os.getcwd()
         shutil.copy(self.filepath, target)
 
     @property
@@ -77,35 +80,40 @@ class Configuration:
         self.settings[key] = value
 
 
+def is_enabled(value):
+    """Whether a setting ("yes"/"no" or a boolean) is switched on"""
+    if isinstance(value, str):
+        return value.strip().lower() == "yes"
+    return bool(value)
+
+
+def _is_executable(path):
+    return os.path.isfile(path) and os.access(path, os.X_OK)
+
+
 def check_bin(bin_path, error_msg=""):
-    # if absolute path is given, check if exits and executable
+    # if absolute path is given, it either is the executable or it's not
     if os.path.isabs(bin_path):
-        if os.path.exists(bin_path) and os.access(bin_path, os.X_OK):
+        if _is_executable(bin_path):
             return bin_path
+        raise FileNotFoundError(error_msg or bin_path)
 
     # append .exe if on Windows
     if os.name == "nt" and not bin_path.endswith(".exe"):
         bin_path += ".exe"
 
-    # check working dir
-    local_bin = os.path.join(os.getcwd(), bin_path)
-    if os.path.exists(local_bin) and os.access(local_bin, os.X_OK):
-        return local_bin
-
-    # check module dir
-    module_bin = os.path.join(MODULE_DIR, bin_path)
-    if os.path.exists(module_bin) and os.access(module_bin, os.X_OK):
-        return module_bin
-
-    # check system path
-    system_paths = os.environ["PATH"].split(os.pathsep)
-    system_paths.extend(sys.path)
-    for path in system_paths:
-        candidate_path = os.path.join(path, bin_path)
-        if os.path.exists(candidate_path) and os.access(candidate_path, os.X_OK):
+    # check working dir and module dir
+    for directory in (os.getcwd(), MODULE_DIR):
+        candidate_path = os.path.join(directory, bin_path)
+        if _is_executable(candidate_path):
             return candidate_path
 
-    raise FileNotFoundError(error_msg)
+    # check system path
+    system_bin = shutil.which(bin_path)
+    if system_bin is not None:
+        return system_bin
+
+    raise FileNotFoundError(error_msg or bin_path)
 
 
 def get_ghostscript(bin_path):
@@ -119,7 +127,7 @@ def get_ghostscript(bin_path):
                 sub_keys = list(_get_reg_sub_keys(key))
                 gs_dir = winreg.QueryValue(key, sub_keys[-1])
             gs_bin = os.path.join(gs_dir, "bin", "gswin64c.exe")
-            if os.path.exists(gs_bin) and os.access(gs_bin, os.X_OK):
+            if _is_executable(gs_bin):
                 return gs_bin
         raise e
 

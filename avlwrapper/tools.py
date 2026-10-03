@@ -1,7 +1,6 @@
 import copy
 import itertools
 import re
-from itertools import product
 
 FLOATING_POINT_PATTERN = r"[+-]?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?"
 
@@ -27,7 +26,7 @@ def create_sweep_cases(base_case, parameters):
         parameters = [parameters]
 
     parameter_names = [p["name"] for p in parameters]
-    parameter_values = product(*[p["values"] for p in parameters])
+    parameter_values = itertools.product(*[p["values"] for p in parameters])
 
     cases = []
     for idx, values in enumerate(parameter_values):

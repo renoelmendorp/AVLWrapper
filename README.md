@@ -58,6 +58,13 @@ session = Session(..., config=my_config)
 ```
 
 
+## Error handling
+All errors raised by the wrapper derive from `avlwrapper.AvlError`:
+
+* `InputError`: invalid geometry, case or mass input
+* `AvlExecutionError`: AVL did not produce the expected results. The AVL output is available in the `output` attribute
+* `OutputError`: an AVL output file could not be parsed
+
 ## Development
 # Tests
 To run tests in development, first install the development requirement into your environment:

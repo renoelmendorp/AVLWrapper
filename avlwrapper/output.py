@@ -1,7 +1,9 @@
 import os.path
 import re
+from typing import NamedTuple
 
-from avlwrapper import logger
+from avlwrapper.config import logger
+from avlwrapper.errors import OutputError
 from avlwrapper.tools import (
     FLOATING_POINT_PATTERN,
     get_vars,
@@ -10,17 +12,9 @@ from avlwrapper.tools import (
 )
 
 
-# pattern to match a floating point number with:
-# optional leading '+' or '-'
-# at least one value before the decimal point,
-# at least one value after the decimal point,
-# (optionally) an exponent
-#   - with lowercase 'e' or uppercase 'E'
-#   - (optionally) with a '+' or '-' before the power
-
-
 class FileReader:
     def __init__(self, file_path):
+        self.file_path = file_path
         if os.path.exists(file_path):
             with open(file_path, "r") as avl_file:
                 self.lines = avl_file.readlines()
@@ -29,6 +23,9 @@ class FileReader:
 
     def parse(self):
         raise NotImplementedError
+
+    def error(self, msg):
+        return OutputError(f"{type(self).__name__}: {msg} in {self.file_path}")
 
     @staticmethod
     def get_table_start_end(lines, header_re):
@@ -120,6 +117,8 @@ class _ForcesFileReader(FileReader):
 
     def parse(self):
         start_line, end_line = self.get_table_start_end(self.lines, self._header_re)
+        if start_line is None or end_line is None:
+            raise self.error(f"table header '{self._header_re}' not found")
         table_content = self.lines[start_line:end_line]
         surface_data = self.parse_table(table_content)
         return surface_data
@@ -235,6 +234,10 @@ class ElementFileReader(FileReader):
             data_tables[surface_name] = dict()
             for strip_name, strip_lines in list(strip_tables.items()):
                 start_line, end_line = self.get_table_start_end(strip_lines, header_re)
+                if start_line is None or end_line is None:
+                    raise self.error(
+                        f"table of strip {strip_name} on '{surface_name}' not found"
+                    )
                 data = strip_lines[start_line:end_line]
                 data_tables[surface_name][int(strip_name)] = data
         return data_tables
@@ -271,6 +274,8 @@ class StabilityFileReader(FileReader):
             for (i, line) in enumerate(self.lines)
             if "Stability-axis derivatives..." in line or "Neutral point" in line
         ]
+        if len(idx) < 2:
+            raise self.error("stability derivatives not found")
         return self.lines[idx[0] : idx[1] + 1]
 
     def parse(self):
@@ -308,6 +313,8 @@ class BodyAxisFileReader(StabilityFileReader):
             for (i, line) in enumerate(self.lines)
             if "Geometry-axis derivatives..." in line
         ]
+        if not idx:
+            raise self.error("body-axis derivatives not found")
         return self.lines[idx[0] :]
 
 
@@ -334,6 +341,8 @@ class SystemMatrixFileReader(FileReader):
     def parse(self):
         # remove empty lines
         lines = list(filter(line_is_not_empty, [s.strip() for s in self.lines]))
+        if not lines:
+            raise self.error("system matrix not found")
         header = lines[0].replace("|", " ").split()
         result = {key: [] for key in header}
         for line in lines[1:]:
@@ -352,7 +361,9 @@ class EigenValuesFileReader(GenericReader):
         result = dict()
         for line in lines:
             values = self.get_line_values(line)
-            case_nr = str(int(values[0]))
+            if len(values) < 3:
+                raise self.error(f"invalid eigenvalue line '{line}'")
+            case_nr = int(values[0])
             eigen_val = (values[1], values[2])
             if case_nr in result:
                 result[case_nr].append(eigen_val)
@@ -361,24 +372,41 @@ class EigenValuesFileReader(GenericReader):
         return result
 
 
+class OutputType(NamedTuple):
+    name: str
+    extension: str
+    reader: type
+
+
+# Single registry of the supported AVL outputs. The extension is also the
+# AVL command which writes the file.
+CASE_OUTPUTS = [
+    OutputType("Totals", "ft", TotalsFileReader),
+    OutputType("SurfaceForces", "fn", SurfaceFileReader),
+    OutputType("BodyForces", "fb", BodyFileReader),
+    OutputType("StripForces", "fs", StripFileReader),
+    OutputType("ElementForces", "fe", ElementFileReader),
+    OutputType("StabilityDerivatives", "st", StabilityFileReader),
+    OutputType("BodyAxisDerivatives", "sb", BodyAxisFileReader),
+    OutputType("HingeMoments", "hm", HingeFileReader),
+    OutputType("StripShearMoments", "vm", ShearFileReader),
+]
+
+MODE_OUTPUTS = [
+    OutputType("EigenValues", "eig", EigenValuesFileReader),
+    OutputType("SystemMatrix", "sys", SystemMatrixFileReader),
+]
+
+
 class OutputReader:
     """Reads AVL output files. Type is determined based on file extension"""
 
     _reader_classes = {
-        ".ft": TotalsFileReader,
-        ".fn": SurfaceFileReader,
-        ".fb": BodyFileReader,
-        ".fs": StripFileReader,
-        ".fe": ElementFileReader,
-        ".st": StabilityFileReader,
-        ".sb": BodyAxisFileReader,
-        ".hm": HingeFileReader,
-        ".vm": ShearFileReader,
-        ".sys": SystemMatrixFileReader,
-        ".eig": EigenValuesFileReader,
+        "." + output.extension: output.reader for output in CASE_OUTPUTS + MODE_OUTPUTS
     }
 
     def __init__(self, file_path):
+        self.file_path = file_path
         _, extension = os.path.splitext(file_path)
         if extension in self._reader_classes:
             self.reader = self._reader_classes[extension](file_path)
@@ -387,4 +415,15 @@ class OutputReader:
             self.reader = GenericReader(file_path)
 
     def get_content(self):
-        return self.reader.parse()
+        if not any(line.strip() for line in self.reader.lines):
+            raise OutputError(f"{self.file_path} is empty")
+        try:
+            return self.reader.parse()
+        except (IndexError, KeyError, ValueError) as e:
+            # incomplete or unexpected file content
+            reader_name = type(self.reader).__name__
+            raise OutputError(
+                f"{reader_name}: could not parse {self.file_path} "
+                f"({type(e).__name__}: {e}), the file is incomplete or has an "
+                "unexpected format"
+            ) from e

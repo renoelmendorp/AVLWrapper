@@ -1,13 +1,15 @@
-import operator
-import os
-import re
 from abc import ABC
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, StrEnum, auto
-from typing import Iterable, List, Optional, NamedTuple, Union
+import operator
+import os
+import re
+from typing import List, Optional, NamedTuple, Union
 
-from avlwrapper import VERSION, logger
+from avlwrapper._version import VERSION
+from avlwrapper.config import logger
+from avlwrapper.errors import InputError
 from avlwrapper.tools import (
     get_vars,
     line_to_floats,
@@ -16,16 +18,6 @@ from avlwrapper.tools import (
     line_has_no_comment,
     line_is_not_separator,
 )
-
-
-class InputError(ValueError):
-    def __init__(self, lines_in):
-        if isinstance(lines_in, Iterable):
-            full_str = "\n".join(lines_in)
-        else:
-            full_str = str(lines_in)
-        msg = f"Invalid input:\n{full_str}"
-        super().__init__(msg)
 
 
 class Input(ABC):
@@ -135,7 +127,7 @@ class ModelInput(Input, ABC):
         return kwargs
 
 
-class Spacial(NamedTuple):
+class Spatial(NamedTuple):
     x: float
     y: float
     z: float
@@ -147,23 +139,24 @@ class Spacial(NamedTuple):
         kwargs = {}
         for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) + getattr(other, attr)
-        return Spacial(**kwargs)
+        return Spatial(**kwargs)
 
     def __mul__(self, other):
         kwargs = {}
         for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) * other
-        return Spacial(**kwargs)
+        return Spatial(**kwargs)
 
     def __truediv__(self, other):
         kwargs = {}
         for attr in ["x", "y", "z"]:
             kwargs[attr] = getattr(self, attr) / other
-        return Spacial(**kwargs)
+        return Spatial(**kwargs)
 
 
-Point = Spacial
-Vector = Spacial
+Point = Spatial
+Vector = Spatial
+Spacial = Spatial  # misspelled name, kept for backwards compatibility
 
 
 class Inertia(NamedTuple):
@@ -183,27 +176,23 @@ class IntStrEnum(IntEnum):
         return str(self.value)
 
 
-class FloatStrEnum(IntEnum):
-    def __str__(self):
-        return str(float(self.value))
-
-
-class Spacing(FloatStrEnum):
+class Spacing(IntEnum):
     sine = 2
     cosine = 1
     equal = 0
     neg_sine = -2
 
+    def __str__(self):
+        # AVL spacing parameters are floats
+        return str(float(self.value))
+
     @classmethod
-    def parse(cls, val, force=False):
+    def parse(cls, val):
         try:
             return cls(val)
         except ValueError:
-            if force:
-                return cls(round(val))
-            else:
-                logger.info(f"{val} not converted to Spacing")
-                return val
+            logger.info(f"{val} not converted to Spacing")
+            return val
 
 
 class Symmetry(IntStrEnum):
@@ -249,7 +238,7 @@ class Airfoil(ModelInput, ABC):
         elif len(split_str) == 3:
             return tuple(split_str[1:])
         else:
-            raise InputError(in_str)
+            raise InputError([in_str])
 
 
 @dataclass
@@ -655,17 +644,16 @@ class Surface(ModelInput):
 
         # special case: CDCL can be defined inside a surface as well as in
         # a section; only CDCL that's defined before any section is tokenized
-        remove = []
+        surface_tokens = []
         is_section_defined = False
-        for idx, (_, token) in enumerate(tokens):
-            if is_section_defined and token == "CDCL":
-                remove.append(idx)
-            elif token == "SECTION":
+        for line_idx, token in tokens:
+            if token == "SECTION":
                 is_section_defined = True
-        for idx in remove:
-            del tokens[idx]
+            elif token == "CDCL" and is_section_defined:
+                continue
+            surface_tokens.append((line_idx, token))
 
-        return tokens
+        return surface_tokens
 
     @classmethod
     def _from_lines(cls, lines_in):
@@ -737,7 +725,7 @@ class Body(ModelInput):
         name = header_lines[1].strip()
         params = line_to_floats(header_lines[2])
         if len(params) != 2:
-            InputError(header_lines)
+            raise InputError(header_lines)
         kwargs = {
             "name": name,
             "n_body": int(params[0]),
@@ -781,7 +769,7 @@ class Aircraft(ModelInput):
     z_symmetry: Symmetry = Symmetry.none
     z_symmetry_plane: float = 0.0
 
-    _from_file: Optional[str] = None
+    _from_file: Optional[str] = field(default=None, repr=False, compare=False)
 
     def __str__(self):
         return "\n".join(
@@ -842,6 +830,16 @@ class Aircraft(ModelInput):
         return obj
 
     @property
+    def control_names(self):
+        """Names of the controls defined on the surfaces"""
+        return {
+            control.name
+            for surface in self.surfaces
+            for section in surface.sections
+            for control in section.controls
+        }
+
+    @property
     def external_files(self):
         files = set()
         for surface in self.surfaces:
@@ -854,7 +852,7 @@ class Aircraft(ModelInput):
         if self._from_file is None:
             af_dir = os.getcwd()
         else:
-            (af_dir, _) = os.path.split(self._from_file)
+            af_dir, _ = os.path.split(self._from_file)
         files = [os.path.join(af_dir, file) for file in files]
         return files
 
@@ -903,22 +901,15 @@ class State(Input):
     def _from_lines(cls, lines_in: List[str]):
         if len(lines_in) != 1:
             raise InputError(lines_in)
-        params = multi_split(lines_in[0], "=", " ")
-        name, rest = (s.strip() for s in lines_in[0].split("="))
-        if " " in rest:
-            value, unit = (s.strip() for s in rest.split(" ", maxsplit=1))
-        else:
-            value = rest
-            unit = ""
-        value = float(value)
-        if len(params) == 2:
-            obj = cls(name=name, value=value)
-        else:
-            obj = cls(name=name, value=value, unit=unit)
-        return obj
+        name, sep, rest = (s.strip() for s in lines_in[0].partition("="))
+        value, _, unit = rest.partition(" ")
+        if not sep or not value:
+            raise InputError(lines_in)
+        return cls(name=name, value=float(value), unit=unit.strip())
 
     def __str__(self):
-        return f" {self.name:<10} = {self.value:<10} {self.unit}\n"
+        # value might not be set (yet), see Case.CASE_STATES
+        return f" {self.name:<10} = {str(self.value):<10} {self.unit}\n"
 
 
 class Case(Input):
@@ -1102,9 +1093,14 @@ class Case(Input):
         }
 
     def _check_states(self):
-        for key in self.states.keys():
+        for key, state in self.states.items():
             if key not in self.CASE_STATES:
                 raise InputError(f"Invalid state variable: {key}")
+            if state.value is None:
+                raise InputError(
+                    f"State '{key}' of case '{self.name}' is not set. "
+                    "If not given, it's taken from the geometry by the Session"
+                )
 
     def _check_parameters(self):
         for param in self.parameters.values():
@@ -1114,9 +1110,26 @@ class Case(Input):
             ):
                 raise InputError(f"Invalid setting on parameter: {param.name}.")
 
-    def _check(self):
+    def _check_controls(self, valid_controls):
+        for control in self.controls:
+            if control not in valid_controls:
+                raise InputError(
+                    f"'{control}' in case '{self.name}' is not a case parameter, "
+                    "state or control of the geometry. Controls of the geometry: "
+                    + (", ".join(sorted(valid_controls)) or "none")
+                )
+
+    def validate(self, valid_controls=None):
+        """
+        Checks if the case can be written to a valid case file
+
+        :param valid_controls: (optional) names of the controls in the
+            geometry. If given, the controls in the case are checked.
+        """
         self._check_parameters()
         self._check_states()
+        if valid_controls is not None:
+            self._check_controls(valid_controls)
 
     @classmethod
     def _get_parameter_key_by_name(cls, name):
@@ -1133,8 +1146,6 @@ class Case(Input):
         raise LookupError(f"{name} not found")
 
     def __str__(self):
-        self._check()
-
         # case header
         case_str = " " + "-" * 45 + f"\n Run case {self.number:<2}:  {self.name}\n\n"
 
@@ -1182,6 +1193,14 @@ class MassItem(ModelInput):
         return mass_str
 
 
+def _is_number(s):
+    try:
+        float(s)
+    except ValueError:
+        return False
+    return True
+
+
 class ModifierType(StrEnum):
     multiplication = auto()
     addition = auto()
@@ -1214,10 +1233,14 @@ class MassModifier(MassItem):
         else:
             op = operator.mul
 
+        # inertia of a mass item is optional
+        inertia = mass_item.inertia or Inertia()
+
         return MassItem(
             mass=op(mass_item.mass, self.mass),
             position=Point(*map(op, mass_item.position, self.position)),
-            inertia=Inertia(*map(op, mass_item.inertia, self.inertia)),
+            inertia=Inertia(*map(op, inertia, self.inertia)),
+            name=mass_item.name,
         )
 
     @classmethod
@@ -1287,10 +1310,12 @@ class MassDistribution(ModelInput):
         # parse mass table
         masses = []
         for line in lines_in:
-            if line[0].isdigit():
-                masses.append(MassItem.from_lines([line]))
-            elif line.startswith("+") or line.startswith("*"):
+            if line[0] in "+*":
                 masses.append(MassModifier.from_lines([line]))
+            elif _is_number(line.split()[0]):
+                masses.append(MassItem.from_lines([line]))
+            elif "=" not in line:
+                logger.warning(f"Ignored line in mass distribution: {line}")
         kwargs["masses"] = masses
 
         return cls(**kwargs)
@@ -1300,17 +1325,18 @@ class MassDistribution(ModelInput):
         multiplier = None
         new_masses = []
         for item in self.masses:
-            if type(item) is MassItem:
+            # MassModifier is a MassItem, so needs to be checked first
+            if isinstance(item, MassModifier):
+                if item.mod_type == ModifierType.addition:
+                    adder = item
+                else:
+                    multiplier = item
+            else:
                 if multiplier:
                     item = multiplier.apply(item)
                 if adder:
                     item = adder.apply(item)
                 new_masses.append(item)
-            elif type(item) is MassModifier:
-                if item.mod_type == ModifierType.addition:
-                    adder = item
-                else:
-                    multiplier = item
         self.masses = new_masses
 
     def __str__(self):

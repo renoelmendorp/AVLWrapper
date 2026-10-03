@@ -5,7 +5,6 @@ import pytest
 
 import avlwrapper as avl
 
-
 CDIR = os.path.dirname(os.path.realpath(__file__))
 RES_DIR = os.path.join(CDIR, "resources")
 MASS_FILE = os.path.join(RES_DIR, "b737.mass")

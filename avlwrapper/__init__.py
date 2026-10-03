@@ -1,7 +1,7 @@
-""" AVLWrapper
-"""
-VERSION = "0.4.0"
+"""AVLWrapper"""
 
+from ._version import VERSION
+from .errors import AvlError, AvlExecutionError, InputError, OutputError
 from .config import default_config, Configuration, logger
 from .model import (
     Aircraft,
@@ -12,9 +12,11 @@ from .model import (
     DataAirfoil,
     DesignVar,
     FileAirfoil,
+    Inertia,
     MassDistribution,
     MassItem,
     MassModifier,
+    ModifierType,
     NacaAirfoil,
     Parameter,
     Point,
