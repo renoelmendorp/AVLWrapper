@@ -19,13 +19,8 @@ include_files = ["*.cfg"]
 
 # include README as long description
 readme_path = os.path.join(current_dir, "README.md")
-try:
-    import pypandoc
-
-    long_description = pypandoc.convert_file(readme_path, "rst")
-except ImportError:
-    with open(readme_path, "r") as fh:
-        long_description = fh.read()
+with open(readme_path, "r") as fh:
+    long_description = fh.read()
 
 setup(
     name="avlwrapper",
@@ -34,6 +29,7 @@ setup(
     author="Reno Elmendorp",
     description="Python interface for MIT AVL (Athena Vortex Lattice)",
     long_description=long_description,
+    long_description_content_type="text/markdown",
     license="GPL-3.0-only",
     license_files=["LICENSE"],
     classifiers=[
