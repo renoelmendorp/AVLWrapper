@@ -35,6 +35,8 @@ def manual_run():
     with TemporaryDirectory(prefix="avltest_") as working_dir:
         run_file_path = os.path.join(working_dir, run_file)
         with open(run_file_path, "w") as run_file:
+            # no graphics: without a display AVL aborts when it plots
+            run_file.write("plop\ng\n\n")
             run_file.write("load b737.avl\n")
             run_file.write("case b737.run\n")
             run_file.write("mass b737.mass\n")
