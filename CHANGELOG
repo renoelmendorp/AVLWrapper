@@ -67,3 +67,33 @@ V0.4.1:
   ! - Eigenvalues are now indexed by case number as int instead of str
   ! - The AVL executable is no longer searched for in sys.path
   ! - PrintOutput prints the AVL output after the run instead of during the run
+
+v0.5.0:
+    - Results are read from AVL's full-precision machine-readable output (MRF)
+    - Added Options to set AVL's axes, profile drag, trailing-leg forces and
+      body-induced velocities: Session(..., options=Options(...))
+    - AINC keyword (alternative for ANGLE) in input files
+    - Eigenvectors: run_mode_analysis() returns "EigenModes"
+    - Mode analysis of selected cases: run_mode_analysis(cases=[...])
+    - Session.mass_properties(): mass, CG, inertia and apparent mass
+    - Trimmed cases: Case(..., trim=Trim.level_flight) or Trim.looping
+    - Results contain the solved "States" of each case (alpha, CL, velocity, ...)
+    - Off-body flow survey: Session(..., survey_points=[...])
+    - Surface pressures on the outer mould lines (SurfacePressures output)
+    - Strip forces in body axes (StripForcesBodyAxes output)
+    - Design changes: Session(..., design_changes={"twist": 1.5})
+    - Tests run in CI against AVL 3.52 built from source (ci/build-avl.sh)
+    - Tests which need AVL are skipped when it's not installed
+  ! - Requires AVL 3.40 or later. The version is checked before AVL is used
+      for the first time, an older version raises an AvlVersionError
+  ! - The readers of AVL's regular (formatted) output files are removed, the
+      outputs of the OPER menu have to be in the machine-readable format
+  ! - Results have full precision instead of the 4 to 6 digits in AVL's
+      regular output
+  ! - Derivatives with respect to design variables are named after the
+      variable (CL_twist instead of CLg01)
+  ! - Centre of pressure (C.P.x/c) of strips without lift is AVL's computed
+      value instead of 999
+  ! - Requires Python 3.11 or later (already the case since 0.4.0)
+  ! - Mode analysis results are indexed by case number, also the
+      SystemMatrix (which held only the first case)

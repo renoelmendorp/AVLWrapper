@@ -2,11 +2,11 @@ import os.path
 import re
 from typing import NamedTuple
 
+from avlwrapper import mrf
 from avlwrapper.config import logger
 from avlwrapper.errors import OutputError
 from avlwrapper.tools import (
     FLOATING_POINT_PATTERN,
-    get_vars,
     line_is_not_empty,
     line_has_no_comment,
 )
@@ -28,33 +28,6 @@ class FileReader:
         return OutputError(f"{type(self).__name__}: {msg} in {self.file_path}")
 
     @staticmethod
-    def get_table_start_end(lines, header_re):
-        start_line, end_line = None, None
-        for line_nr, line in enumerate(lines):
-            if re.search(header_re, line) is not None:
-                start_line = line_nr
-
-            # Find end of table based on the empty line
-            if start_line is not None and (
-                line.strip() == "" or line_nr == len(lines) - 1
-            ):
-                end_line = line_nr
-                break
-
-        return start_line, end_line
-
-    @staticmethod
-    def extract_header(table_lines, ignore_first=True):
-        # Get headers (might contain spaces, but no double spaces)
-        header = re.split(r"\s{2,}", table_lines[0])
-        # remove starting and trailing spaces, empty strings and EOL
-        header = list(filter(None, [s.strip() for s in header]))
-        # ignore first column
-        if ignore_first:
-            header = header[1:]
-        return header
-
-    @staticmethod
     def get_line_values(data_line):
         data_list = re.findall(rf"({FLOATING_POINT_PATTERN}|\*+)", data_line)
         values = []
@@ -74,267 +47,100 @@ class FileReader:
                 values.append(float(val))
         return values
 
-    @staticmethod
-    def remove_ydup(name):
-        return re.sub(r"\(YDUP\)", "", name).strip()
-
-    @staticmethod
-    def split_lines(lines, re_str):
-        splitted = dict()
-        name = None
-        next_line_name = False
-        for line in lines:
-            match = re.search(re_str, line)
-            if match is not None:
-                name = match.group(1).strip()
-                if name:
-                    splitted[name] = [line]
-                else:
-                    next_line_name = True
-            elif name:
-                splitted[name].append(line)
-            elif next_line_name:
-                name = line.strip()
-                splitted[name] = [line]
-                next_line_name = False
-        return splitted
-
 
 class GenericReader(FileReader):
     def parse(self):
         return "\n".join(self.lines)
 
 
-class TotalsFileReader(FileReader):
-    def parse(self):
-        return get_vars(self.lines)
+class MachineReadableFileReader(FileReader):
+    """Reads the outputs of the OPER menu, written in AVL's machine-readable
+    format (MRF), see avlwrapper.mrf"""
 
-
-class _ForcesFileReader(FileReader):
-    def __init__(self, file_path, header_re):
-        self._header_re = header_re
+    def __init__(self, file_path, body_names=None):
         super().__init__(file_path)
+        self.body_names = body_names
 
     def parse(self):
-        start_line, end_line = self.get_table_start_end(self.lines, self._header_re)
-        if start_line is None or end_line is None:
-            raise self.error(f"table header '{self._header_re}' not found")
-        table_content = self.lines[start_line:end_line]
-        surface_data = self.parse_table(table_content)
-        return surface_data
-
-    def parse_table(self, table_lines):
-        header = self.extract_header(table_lines)
-        forces_data = dict()
-        for line in table_lines[1:]:
-            line_data = self.get_line_values(line)
-
-            # ignore first column
-            line_data = line_data[1:]
-
-            name = re.findall(r"(\D*)$", line)[0].strip()
-
-            if len(line_data) < len(header):
-                raise ValueError("Incorrect table format")
-
-            # Create results dictionary
-            # Combine surfaces labeled with (YDUP)
-            if "(YDUP)" in name:
-                base_name = self.remove_ydup(name)
-                base_data = forces_data[base_name]
-                all_data = zip(header, [base_data[key] for key in header], line_data)
-                forces_data[base_name] = {
-                    key: base_value + value for key, base_value, value in all_data
-                }
-            else:
-                forces_data[name] = {
-                    key: value for key, value in zip(header, line_data)
-                }
-        return forces_data
+        if not mrf.is_mrf(self.lines):
+            raise self.error(
+                "file is not in AVL's machine-readable format (AVL 3.40 or "
+                "later writes it with the MRF command)"
+            )
+        return mrf.parse(self.lines, self.file_path, self.body_names)
 
 
-class SurfaceFileReader(_ForcesFileReader):
-    def __init__(self, file_path):
-        super().__init__(file_path, r"(n\s+Area\s+CL)")
+class _TableFileReader(FileReader):
+    """Base class for AVL's formatted tables, which have no machine-readable
+    format: a header line with the column names, followed by rows of values
+    which start with an index column"""
 
+    def read_table(self, start, is_header):
+        """
+        Reads the first table after line start
 
-class BodyFileReader(_ForcesFileReader):
-    def __init__(self, file_path):
-        super().__init__(file_path, r"Ibdy\s+Length\s+Asurf")
-
-
-class StripFileReader(FileReader):
-    def parse(self):
-        table_content = self.get_tables(
-            self.lines,
-            surface_re=r"Surface\s+#\s*\d+\s+(.*)",
-            header_re=r"(j\s+.*Chord)",
-        )
-        strip_results = self.parse_tables(table_content)
-        return strip_results
-
-    def get_tables(self, lines, surface_re, header_re):
-        table_lines = self.split_lines(lines, surface_re)
-        table_dict = dict()
-        for name, lines in list(table_lines.items()):
-            start_line, end_line = self.get_table_start_end(lines, header_re)
-            if start_line is not None and end_line is not None:
-                table_dict[name] = lines[start_line:end_line]
-        return table_dict
-
-    def parse_tables(self, table_content, ignore_first=True, skip_ydup=False):
-        strip_results = dict()
-        # sort so (YDUP) surfaces are always behind the main surface
-        for name in sorted(table_content.keys()):
-            header = self.extract_header(table_content[name], ignore_first)
-
-            # check for YDUP
-            if "(YDUP)" in name:
-                if skip_ydup:
+        :param int start: line index to start searching for the header
+        :param is_header: function which tells whether a line is the header
+        :return: the columns as {name: [values]}, the index of the line
+            after the table
+        """
+        idx = start
+        while idx < len(self.lines) and not is_header(self.lines[idx]):
+            idx += 1
+        if idx == len(self.lines):
+            raise self.error("table header not found")
+        # first column is the index
+        header = self.lines[idx].split()[1:]
+        table = {key: [] for key in header}
+        idx += 1
+        for idx in range(idx, len(self.lines)):
+            line = self.lines[idx].strip()
+            if not line:
+                # empty line before the first row
+                if not table[header[0]]:
                     continue
-                else:
-                    result_name = self.remove_ydup(name)
-            else:
-                result_name = name
-                strip_results[result_name] = {key: [] for key in header}
-
-            for data_line in table_content[name][1:]:
-                # Convert to floats
-                values = self.get_line_values(data_line)
-                # ignore first column
-                if ignore_first:
-                    values = values[1:]
-
-                if len(values) < len(header):
-                    logger.warning("Table values missing. Replaced with NaN")
-                    values += [float("nan")] * (len(header) - len(values))
-                elif len(values) > len(header):
-                    raise ValueError("Incorrect table format")
-
-                for key, value in zip(header, values):
-                    strip_results[result_name][key].append(value)
-        return strip_results
+                break
+            if set(line) == {"-"}:
+                break
+            values = self.get_line_values(line)[1:]
+            if len(values) != len(header):
+                raise self.error(f"number of values and columns differ: '{line}'")
+            for key, value in zip(header, values):
+                table[key].append(value)
+        return table, idx
 
 
-class ElementFileReader(FileReader):
+class StripForcesBodyAxesFileReader(_TableFileReader):
+    """Strip forces in body axes (FSB), AVL has no machine-readable format for
+    them. Values have 5 to 6 significant digits."""
+
     def parse(self):
-        data_tables = self.get_tables(self.lines)
-        element_results = self.parse_tables(data_tables)
-
-        return element_results
-
-    def get_tables(self, lines):
-        # tables split by surface
-        surface_tables = self.split_lines(lines, r"Surface\s+#\s*\d+\s+(.*)")
-        data_tables = dict()
-        for surface_name, surface_lines in list(surface_tables.items()):
-            # tables split by strip
-            strip_tables = self.split_lines(surface_lines, r"Strip\s+#\s*(\d+)\s+")
-            header_re = r"(I\s+X\s+Y\s+Z)"
-            data_tables[surface_name] = dict()
-            for strip_name, strip_lines in list(strip_tables.items()):
-                start_line, end_line = self.get_table_start_end(strip_lines, header_re)
-                if start_line is None or end_line is None:
-                    raise self.error(
-                        f"table of strip {strip_name} on '{surface_name}' not found"
-                    )
-                data = strip_lines[start_line:end_line]
-                data_tables[surface_name][int(strip_name)] = data
-        return data_tables
-
-    def parse_tables(self, data_tables):
-        element_results = dict()
-        # sort so (YDUP) surfaces are always behind the main surface
-        for name in sorted(data_tables.keys()):
-            # check for YDUP
-            if "(YDUP)" in name:
-                result_name = self.remove_ydup(name)
-            else:
-                result_name = name
-                element_results[result_name] = dict()
-
-            for strip in data_tables[name].keys():
-                header = self.extract_header(data_tables[name][strip])
-                # create empty lists
-                element_results[result_name][strip] = {key: [] for key in header}
-                for data_line in data_tables[name][strip][1:]:
-                    values = self.get_line_values(data_line)
-                    # ignore first column
-                    values = values[1:]
-                    for key, value in zip(header, values):
-                        element_results[result_name][strip][key].append(value)
-        return element_results
-
-
-class StabilityFileReader(FileReader):
-    @property
-    def var_lines(self):
-        idx = [
-            i
-            for (i, line) in enumerate(self.lines)
-            if "Stability-axis derivatives..." in line or "Neutral point" in line
+        result = {}
+        surfaces = [
+            (idx, match.group(1).strip())
+            for idx, line in enumerate(self.lines)
+            if (match := re.match(r"\s*Surface #\s*\d+\s+(.*)", line))
         ]
-        if len(idx) < 2:
-            raise self.error("stability derivatives not found")
-        return self.lines[idx[0] : idx[1] + 1]
+        for idx, name in surfaces:
+            table, _ = self.read_table(idx, lambda line: line.split()[:1] == ["j"])
+            base_name = re.sub(r"\(YDUP\)", "", name).strip()
+            if base_name in result:
+                # strips of the duplicated surface follow the original ones
+                for key, values in table.items():
+                    result[base_name][key].extend(values)
+            else:
+                result[base_name] = table
+        return result
+
+
+class OffBodyFlowFileReader(_TableFileReader):
+    """Off-body flow survey (OB), AVL has no machine-readable format for it.
+    Velocities are normalised with the free-stream velocity, values have 6
+    decimals."""
 
     def parse(self):
-        all_vars = get_vars(self.var_lines)
-        controls = self.get_controls(self.lines)
-        all_vars = self.replace_controls(all_vars, controls)
-
-        return all_vars
-
-    @staticmethod
-    def get_controls(lines):
-        controls = re.findall(r"(\S+)\s+(d\d+)", "".join(lines))
-        return {number: name for (name, number) in controls}
-
-    @staticmethod
-    def replace_controls(var_dict, controls):
-        # replace d# with control name
-        new_dict = var_dict.copy()
-        for key in var_dict.keys():
-            match = re.search(r"d\d+", key)
-            if match is not None:
-                d = match.group(0)
-                name = "_" + controls[d]
-                new_key = re.sub(d, name, key)
-                new_dict[new_key] = new_dict[key]
-                new_dict.pop(key)
-        return new_dict
-
-
-class BodyAxisFileReader(StabilityFileReader):
-    @property
-    def var_lines(self):
-        idx = [
-            i
-            for (i, line) in enumerate(self.lines)
-            if "Geometry-axis derivatives..." in line
-        ]
-        if not idx:
-            raise self.error("body-axis derivatives not found")
-        return self.lines[idx[0] :]
-
-
-class HingeFileReader(FileReader):
-    def parse(self):
-        results = dict()
-        for line in self.lines:
-            match = re.search(r"(\w+)\s+([-\dE.]+)", line)
-            if match is not None:
-                results[match.group(1)] = float(match.group(2))
-        return results
-
-
-class ShearFileReader(StripFileReader):
-    def parse(self):
-        table_content = self.get_tables(
-            self.lines, surface_re=r"Surface:\s*\d+\s+(.*)", header_re=r"(2Y.*\s+Vz)"
-        )
-        results = self.parse_tables(table_content, ignore_first=False, skip_ydup=True)
-        return results
+        table, _ = self.read_table(0, lambda line: line.split()[:2] == ["I", "X"])
+        return table
 
 
 class SystemMatrixFileReader(FileReader):
@@ -352,7 +158,7 @@ class SystemMatrixFileReader(FileReader):
         return result
 
 
-class EigenValuesFileReader(GenericReader):
+class EigenValuesFileReader(FileReader):
     def parse(self):
         lines = filter(
             lambda s: line_has_no_comment(s) and line_is_not_empty(s),
@@ -381,17 +187,23 @@ class OutputType(NamedTuple):
 # Single registry of the supported AVL outputs. The extension is also the
 # AVL command which writes the file.
 CASE_OUTPUTS = [
-    OutputType("Totals", "ft", TotalsFileReader),
-    OutputType("SurfaceForces", "fn", SurfaceFileReader),
-    OutputType("BodyForces", "fb", BodyFileReader),
-    OutputType("StripForces", "fs", StripFileReader),
-    OutputType("ElementForces", "fe", ElementFileReader),
-    OutputType("StabilityDerivatives", "st", StabilityFileReader),
-    OutputType("BodyAxisDerivatives", "sb", BodyAxisFileReader),
-    OutputType("HingeMoments", "hm", HingeFileReader),
-    OutputType("StripShearMoments", "vm", ShearFileReader),
+    OutputType("Totals", "ft", MachineReadableFileReader),
+    OutputType("SurfaceForces", "fn", MachineReadableFileReader),
+    OutputType("BodyForces", "fb", MachineReadableFileReader),
+    OutputType("StripForces", "fs", MachineReadableFileReader),
+    OutputType("ElementForces", "fe", MachineReadableFileReader),
+    OutputType("StabilityDerivatives", "st", MachineReadableFileReader),
+    OutputType("BodyAxisDerivatives", "sb", MachineReadableFileReader),
+    OutputType("HingeMoments", "hm", MachineReadableFileReader),
+    OutputType("StripShearMoments", "vm", MachineReadableFileReader),
+    OutputType("StripForcesBodyAxes", "fsb", StripForcesBodyAxesFileReader),
 ]
 
+# outputs which are written with other commands, see Session
+SURFACE_PRESSURES = OutputType("SurfacePressures", "cpom", MachineReadableFileReader)
+OFF_BODY_FLOW = OutputType("OffBodyFlow", "ob", OffBodyFlowFileReader)
+
+# the MODE menu has no machine-readable format
 MODE_OUTPUTS = [
     OutputType("EigenValues", "eig", EigenValuesFileReader),
     OutputType("SystemMatrix", "sys", SystemMatrixFileReader),
@@ -399,17 +211,30 @@ MODE_OUTPUTS = [
 
 
 class OutputReader:
-    """Reads AVL output files. Type is determined based on file extension"""
+    """Reads AVL output files. Type is determined based on file extension.
+
+    The outputs of the OPER menu (.ft, .fn, .fb, .fs, .fe, .st, .sb, .hm,
+    .vm) need to be in AVL's machine-readable format (MRF).
+
+    :param str file_path: path to the output file
+    :param Optional[List[str]] body_names: (optional) names of the bodies in
+        the geometry, including (YDUP) duplicates. Needed for body forces
+        files, in which AVL leaves the names empty.
+    """
 
     _reader_classes = {
-        "." + output.extension: output.reader for output in CASE_OUTPUTS + MODE_OUTPUTS
+        "." + output.extension: output.reader
+        for output in [*CASE_OUTPUTS, *MODE_OUTPUTS, SURFACE_PRESSURES, OFF_BODY_FLOW]
     }
 
-    def __init__(self, file_path):
+    def __init__(self, file_path, body_names=None):
         self.file_path = file_path
         _, extension = os.path.splitext(file_path)
-        if extension in self._reader_classes:
-            self.reader = self._reader_classes[extension](file_path)
+        reader_class = self._reader_classes.get(extension)
+        if reader_class is MachineReadableFileReader:
+            self.reader = reader_class(file_path, body_names)
+        elif reader_class is not None:
+            self.reader = reader_class(file_path)
         else:
             logger.warning(f"Unknown output file: {file_path}")
             self.reader = GenericReader(file_path)

@@ -15,7 +15,7 @@ AVL_FILE = os.path.join(RES_DIR, "b737.avl")
 CASE_FILE = os.path.join(RES_DIR, "b737.run")
 MASS_FILE = os.path.join(RES_DIR, "b737.mass")
 
-OUT_FILES = ["st", "sb", "ft", "fn", "fs", "fe", "fb", "hm", "vm", "sys", "eig"]
+OUT_FILES = ["st", "sb", "ft", "fn", "fs", "fe", "fb", "hm", "vm", "fsb", "sys", "eig"]
 
 B737_SURFACES = [
     "Wing",
@@ -39,7 +39,7 @@ def manual_run():
             run_file.write("case b737.run\n")
             run_file.write("mass b737.mass\n")
             run_file.write("mset\n\n")
-            run_file.write("oper\nx\n")
+            run_file.write("oper\nmrf\nx\n")
             for f in OUT_FILES:
                 run_file.write(f"{f}\nb737.{f}\n")
             run_file.write("\n\nmode\nn\n")
@@ -90,11 +90,15 @@ def test_mass_dist(mass_dist):
     assert mass_dist
 
 
+@pytest.mark.avl
 def test_b737_session(model, run_case, mass_dist, manual_run):
     session = avl.Session(geometry=model, cases=[run_case], mass_dist=mass_dist)
     case_results = session.run_all_cases()[run_case.number]
     mode_results = session.run_mode_analysis()
-    all_results = case_results | mode_results
+    all_results = case_results | {
+        "EigenValues": mode_results["EigenValues"],
+        "SystemMatrix": mode_results["SystemMatrix"][run_case.number],
+    }
 
     def check_all_entries(result, reference):
         for key in result:

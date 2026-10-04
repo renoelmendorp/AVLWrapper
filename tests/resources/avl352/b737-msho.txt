@@ -1,0 +1,22 @@
+ Mass        =   0.1701E+06  Munit
+ Mass        =   0.7715E+05  kg
+
+ Ref. x,y,z  =    60.00       0.000       0.000      Lunit
+ C.G. x,y,z  =    65.27       0.000       1.166      Lunit
+ C.G. x,y,z  =    19.89       0.000      0.3553      m
+
+ Ixx -Ixy -Ixz   |   0.7067E+06  -0.000      0.2699E+05  |
+      Iyy -Iyz = |               0.2708E+07  -0.000      |  kg-m^2
+           Izz   |                           0.3308E+07  |
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ Apparent mass, inertia
+
+ mxx  mxy  mxz   |    0.000       0.000       0.000      |
+      myy  myz = |                933.5      0.1688E-15  |  kg
+           mzz   |                            1011.      |
+
+ Ixx -Ixy -Ixz   |   0.1465E+05  0.4407E-11  -3809.      |
+      Iyy -Iyz = |               0.3749E+06  0.1463E-11  |  kg-m^2
+           Izz   |                           0.3508E+06  |
+
+ Use MSET to apply these mass,inertias to run cases

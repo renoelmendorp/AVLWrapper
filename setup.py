@@ -39,6 +39,7 @@ setup(
         "Topic :: Scientific/Engineering",
         "Operating System :: OS Independent",
     ],
+    python_requires=">=3.11",
     packages=find_packages(),
     install_requires=dependencies,
     extras_require={"plot": ["numpy", "matplotlib"]},

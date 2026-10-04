@@ -39,3 +39,7 @@ class AvlExecutionError(AvlError):
 
 class OutputError(AvlError):
     """AVL output file could not be parsed"""
+
+
+class AvlVersionError(AvlExecutionError):
+    """The AVL version is not supported, or could not be determined"""

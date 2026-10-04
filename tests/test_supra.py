@@ -8,6 +8,7 @@ CDIR = os.path.dirname(os.path.realpath(__file__))
 RES_DIR = os.path.join(CDIR, "resources")
 
 
+@pytest.mark.avl
 def test_supra():
     model = avl.Aircraft.from_file(os.path.join(RES_DIR, "supra.avl"))
     cases = avl.Case.from_file(os.path.join(RES_DIR, "supra.run"))

@@ -4,3 +4,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["avl: needs the AVL executable, skipped when it's not found"]

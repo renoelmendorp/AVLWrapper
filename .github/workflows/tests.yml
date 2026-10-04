@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+env:
+  AVL_VERSION: "3.52"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # also needed for a cached build: AVL links to libgfortran and libX11
+      - name: Install Fortran and X11
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gfortran libx11-dev
+      - name: Cache AVL
+        id: cache-avl
+        uses: actions/cache@v4
+        with:
+          path: ~/avl
+          key: avl-${{ env.AVL_VERSION }}-${{ runner.os }}-${{ hashFiles('ci/build-avl.sh') }}
+      - name: Build AVL
+        if: steps.cache-avl.outputs.cache-hit != 'true'
+        run: ci/build-avl.sh "$AVL_VERSION" ~/avl
+      - run: echo "$HOME/avl/bin" >> "$GITHUB_PATH"
+
+      - name: Run tests
+        env:
+          # fail instead of skipping the tests which need AVL
+          AVLWRAPPER_REQUIRE_AVL: "1"
+        run: |
+          python -m pip install pytest
+          python -m pytest -v

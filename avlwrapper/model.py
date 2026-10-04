@@ -195,6 +195,18 @@ class Spacing(IntEnum):
             return val
 
 
+class Trim(IntEnum):
+    """Trim setups of AVL (OPER commands C1 and C2)"""
+
+    # level or banked horizontal flight: sets CL from the velocity or the
+    # velocity from CL, the turn radius and load factor follow from the bank
+    # angle
+    level_flight = 1
+    # steady pitch rate (looping) flight: sets the turn radius from CL or
+    # from the load factor
+    looping = 2
+
+
 class Symmetry(IntStrEnum):
     none = 0
     symmetric = 1
@@ -840,6 +852,17 @@ class Aircraft(ModelInput):
         }
 
     @property
+    def design_names(self):
+        """Names of the design variables, in the order AVL numbers them"""
+        names = []
+        for surface in self.surfaces:
+            for section in surface.sections:
+                for design_var in section.design_vars:
+                    if design_var.name not in names:
+                        names.append(design_var.name)
+        return names
+
+    @property
     def external_files(self):
         files = set()
         for surface in self.surfaces:
@@ -972,15 +995,21 @@ class Case(Input):
         "visc_CM_u": ("visc CM_u", 0.0, ""),
     }
 
-    def __init__(self, name, *args, **kwargs):
+    def __init__(self, name, *args, trim=None, **kwargs):
         """
         :param str name: case name
+        :param Optional[Trim] trim: (optional) let AVL set up the case as a
+            trimmed flight condition, from the states of the case (velocity
+            or CL, bank angle, mass, density, gravity). It sets the
+            constraints of alpha (CL) and the rates, which replaces those
+            parameters of the case.
 
         :param kwargs: key-value pairs
             keys should be Case.CASE_PARAMETERS, Case.CASE_STATES or a control.
             values should be a numeric value or a Parameter object
         """
         self.name = name
+        self.trim = Trim(trim) if trim is not None else None
         if "number" in kwargs:
             self.number = kwargs.pop("number")
         else:
@@ -1387,6 +1416,8 @@ KEYWORDS = {
         "SCALE": PT(None, "scaling", AttrType.vector),
         "TRANSLATE": PT(None, "translation", AttrType.vector),
         "ANGLE": PT(None, "angle", AttrType.float),
+        # alternative keyword for ANGLE
+        "AINC": PT(None, "angle", AttrType.float),
         "NOWAKE": PT(None, "no_wake", AttrType.boolean),
         "NOALBE": PT(None, "fixed", AttrType.boolean),
         "NOLOAD": PT(None, "no_loads", AttrType.boolean),

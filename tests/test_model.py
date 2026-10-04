@@ -106,3 +106,12 @@ def test_mass_simplify():
     mass_dist.simplify()
     mass_sum = sum([m.mass for m in mass_dist.masses])
     assert mass_sum == pytest.approx(170112.5, 1e-6)
+
+
+def test_ainc_keyword():
+    # AINC is AVL's alternative keyword for ANGLE
+    lines = ["SURFACE", "wing", "8 1.0", "AINC", "5.0"]
+    lines += ["SECTION", "0 0 0 1 0", "SECTION", "0 5 0 1 0"]
+    surface = avl.Surface.from_lines(lines)
+    assert surface.angle == 5.0
+    assert "ANGLE\n5.0" in str(surface)
