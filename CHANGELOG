@@ -97,3 +97,21 @@ v0.5.0:
   ! - Requires Python 3.11 or later (already the case since 0.4.0)
   ! - Mode analysis results are indexed by case number, also the
       SystemMatrix (which held only the first case)
+
+v0.6.0:
+    - Results are read-only mappings with attributes, e.g.
+      results[1].totals["CLtot"], results.by_name("cruise") and to_dict()
+    - Eigenmodes with complex eigenvalue and eigenvector, natural frequency,
+      damping ratio, period and time to half/double the amplitude
+    - Outputs are selected in the code: Options(outputs={Output.TOTALS, ...})
+    - Configuration looks for config.cfg in the working directory, then in the
+      user's configuration directory; AVL_EXECUTABLE environment variable
+  ! - The [output] section of config.cfg is ignored, with a deprecation
+      warning. Select the outputs with Options(outputs=...)
+  ! - Configuration is a settings object: Configuration(avl_executable=...),
+      Configuration.from_file(path), config.avl_path, config.ghostscript_path
+      and config.print_output replace config["avl_bin"], config.settings, ...
+  ! - Mode analysis results are by case number first:
+      modes[1].eigenvalues instead of modes["EigenValues"][1]
+  ! - Eigenvalues and eigenvectors are complex numbers instead of tuples
+  ! - Session.OUTPUTS and Session.MODE_OUTPUTS are removed, see avl.Output

@@ -159,12 +159,12 @@ def test_options_in_mode_analysis():
         session = avl.Session(
             model, cases=[case], mass_dist=mass, options=avl.Options(**options)
         )
-        return session.run_mode_analysis()["EigenValues"][1][0]
+        return session.run_mode_analysis()[1].eigenvalues[0]
 
     # the reference eigenvalues in b737.eig were computed by an AVL version
     # which included the trailing-leg forces by default
     assert phugoid(trailing_leg_forces=True) == pytest.approx(
-        (-0.29018355, 1.9011338), rel=1e-6
+        complex(-0.29018355, 1.9011338), rel=1e-6
     )
     assert phugoid(trailing_leg_forces=False) != pytest.approx(
         phugoid(trailing_leg_forces=True), rel=1e-3

@@ -8,7 +8,12 @@ from .errors import (
     InputError,
     OutputError,
 )
-from .config import default_config, Configuration, logger
+from .config import (
+    AvlWrapperDeprecationWarning,
+    Configuration,
+    default_config,
+    logger,
+)
 from .model import (
     Aircraft,
     Body,
@@ -36,6 +41,14 @@ from .model import (
     Vector,
 )
 from .options import Options
-from .output import OutputReader
+from .output import Output, OutputReader
+from .results import (
+    CaseModes,
+    CaseResults,
+    EigenMode,
+    MassProperties,
+    ModeResults,
+    Results,
+)
 from .session import Session
 from .tools import create_sweep_cases, partitioned_cases, show_image

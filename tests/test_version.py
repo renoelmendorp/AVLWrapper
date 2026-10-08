@@ -42,9 +42,10 @@ def test_unknown_version(tmp_path):
 
 
 def test_session_checks_version(tmp_path):
-    config = avl.Configuration()
-    config["avl_bin"] = fake_avl(
-        tmp_path, "  Athena Vortex Lattice  Program      Version  3.36"
+    config = avl.Configuration(
+        avl_executable=fake_avl(
+            tmp_path, "  Athena Vortex Lattice  Program      Version  3.36"
+        )
     )
     model = avl.Aircraft.from_file(AVL_FILE)
     session = avl.Session(geometry=model, cases=[avl.Case(name="case")], config=config)
@@ -54,4 +55,4 @@ def test_session_checks_version(tmp_path):
 
 @pytest.mark.avl
 def test_installed_avl():
-    assert check_avl_version(avl.default_config["avl_bin"]) >= (3, 40)
+    assert check_avl_version(avl.default_config.avl_path) >= (3, 40)

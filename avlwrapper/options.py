@@ -1,18 +1,23 @@
-"""AVL settings of the OPER options menu"""
+"""Settings of an analysis: the outputs and AVL's OPER options"""
 
 import re
-from dataclasses import dataclass, fields
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import FrozenSet, Optional
 
 from avlwrapper.errors import AvlExecutionError, InputError
+from avlwrapper.output import Output
 
 
 @dataclass
 class Options:
     """
-    Settings which change what AVL's results mean. Every setting defaults to
-    None, which keeps the AVL default.
+    Settings of an analysis: which outputs to compute, and AVL settings which
+    change what the results mean. The AVL settings default to None, which
+    keeps the AVL default.
 
+    :param Iterable[Output] outputs: outputs to compute for every case,
+        defaults to Output.defaults() (all but the surface pressures). Names
+        such as "Totals" are accepted too.
     :param Optional[bool] standard_axes: forces and moments in the standard
         axes (X forward, Z down), or in the geometric axes (X aft, Z up)
     :param Optional[bool] stability_axis_rates: the rates of the cases
@@ -28,6 +33,7 @@ class Options:
         by bodies in the near-field forces (not available in AVL 3.40)
     """
 
+    outputs: FrozenSet[Output] = field(default_factory=Output.defaults)
     standard_axes: Optional[bool] = None
     stability_axis_rates: Optional[bool] = None
     profile_drag: Optional[bool] = None
@@ -48,13 +54,25 @@ class Options:
         "body_induced_velocity": ("N", r"N ear-field forces\s*:\s*([TF])", "T"),
     }
 
+    def __post_init__(self):
+        outputs = set()
+        for output in self.outputs:
+            try:
+                outputs.add(Output(output))
+            except ValueError:
+                raise InputError(
+                    f"Unknown output: {output!r}. Outputs: "
+                    + ", ".join(o.value for o in Output)
+                ) from None
+        self.outputs = frozenset(outputs)
+
     @property
     def requested(self):
-        """The options which are set, as a dictionary"""
+        """The AVL settings which are set, as a dictionary"""
         return {
-            f.name: getattr(self, f.name)
-            for f in fields(self)
-            if getattr(self, f.name) is not None
+            name: getattr(self, name)
+            for name in self._MENU
+            if getattr(self, name) is not None
         }
 
     @classmethod

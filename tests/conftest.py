@@ -6,8 +6,11 @@ import avlwrapper as avl
 
 
 def pytest_collection_modifyitems(config, items):
-    if "avl_bin" in avl.default_config.settings:
+    try:
+        avl.default_config.avl_path
         return
+    except FileNotFoundError:
+        pass
     if os.environ.get("AVLWRAPPER_REQUIRE_AVL"):
         # in CI, a missing AVL executable is an error, not a reason to skip
         raise pytest.UsageError("AVL executable not found")

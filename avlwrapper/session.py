@@ -9,7 +9,7 @@ import subprocess
 import shutil
 from tempfile import TemporaryDirectory
 
-from avlwrapper.config import default_config, is_enabled, logger
+from avlwrapper.config import default_config, logger
 from avlwrapper.errors import (
     AvlExecutionError,
     AvlVersionError,
@@ -21,11 +21,25 @@ from avlwrapper.model import Case
 from avlwrapper.options import Options
 from avlwrapper.output import (
     CASE_OUTPUTS,
-    MODE_OUTPUTS,
     OFF_BODY_FLOW,
     SURFACE_PRESSURES,
+    Output,
     OutputReader,
 )
+from avlwrapper.results import (
+    CaseModes,
+    CaseResults,
+    EigenMode,
+    MassProperties,
+    ModeResults,
+    Results,
+)
+
+# file extension (and AVL command) of every output
+_EXTENSIONS = {
+    Output(output.name): output.extension
+    for output in [*CASE_OUTPUTS, SURFACE_PRESSURES]
+}
 
 # replaced by the commands which apply the options, see Session.run_avl
 _OPTIONS_PLACEHOLDER = "<options>\n"
@@ -77,12 +91,6 @@ def check_avl_version(avl_bin):
 class Session:
     """Main class which handles AVL runs and input/output"""
 
-    OUTPUTS = {
-        output.name: output.extension for output in [*CASE_OUTPUTS, SURFACE_PRESSURES]
-    }
-
-    MODE_OUTPUTS = {output.name: output.extension for output in MODE_OUTPUTS}
-
     def __init__(
         self,
         geometry,
@@ -101,12 +109,12 @@ class Session:
             works on copies, the given cases are not modified.
         :param Optional[MassDistribution] mass_dist: Mass distribution
         :param str name: session name, defaults to geometry name
-        :param avlwrapper.Configuration config: (optional) dictionary
-            containing setting
+        :param avlwrapper.Configuration config: (optional) settings of the
+            machine, e.g. the AVL executable
         :param Optional[float] timeout: (optional) maximum run time of AVL
             in seconds
-        :param Optional[Options] options: (optional) AVL settings, e.g. the
-            axes of the results or including profile drag
+        :param Optional[Options] options: (optional) settings of the analysis:
+            the outputs and AVL settings such as the axes of the results
         :param Optional[List[Point]] survey_points: (optional) points of an
             off-body flow survey, results are in "OffBodyFlow"
         :param Optional[Dict[str, float]] design_changes: (optional) changes
@@ -180,18 +188,12 @@ class Session:
 
     @property
     def requested_output(self):
-        requested_outputs = {
-            k.lower() for k, v in self.config["output"].items() if is_enabled(v)
+        """The selected outputs with their file extension"""
+        return {
+            output: _EXTENSIONS[output]
+            for output in Output
+            if output in self.options.outputs
         }
-        lc_outputs = {k.lower(): (k, v) for k, v in self.OUTPUTS.items()}
-
-        outputs = {}
-        for output in requested_outputs:
-            if output not in lc_outputs:
-                raise ValueError(f"Invalid output: {output}")
-            name, ext = lc_outputs[output]
-            outputs[name] = ext
-        return outputs
 
     def _write_geometry(self, target_dir):
         model_path = os.path.join(target_dir, self.model_file)
@@ -285,7 +287,7 @@ class Session:
             ) from e
 
         output = process.stdout.decode(errors="replace")
-        if self.config["show_stdout"]:
+        if self.config.print_output:
             print(output)
         logger.debug(output)
 
@@ -339,7 +341,7 @@ class Session:
             cmds += self._trim_cmds(case)
             cmds += "{0}\nx\n".format(case.number)
             for output, ext in self.requested_output.items():
-                if output == SURFACE_PRESSURES.name:
+                if output == Output.SURFACE_PRESSURES:
                     # written to a fixed file name, see _read_surface_pressures
                     continue
                 out_file = self._get_output_filename(case, ext)
@@ -374,6 +376,11 @@ class Session:
         return cmds
 
     def run_all_cases(self):
+        """
+        Runs all cases
+
+        :return: Results, the results of each case by case number
+        """
         results = self.run_avl(
             cmds=self._run_all_cases_cmds,
             pre_fn=self._write_analysis_files,
@@ -421,8 +428,8 @@ class Session:
 
         :param Optional[List[int]] cases: (optional) numbers of the cases to
             analyse, defaults to all cases
-        :return: dictionary with "EigenValues", "EigenModes" (eigenvalues
-            with eigenvectors) and "SystemMatrix", each by case number
+        :return: ModeResults, the eigenvalues, eigenmodes and system matrix
+            of each case by case number
         """
         numbers = self._mode_case_numbers(cases)
         return self.run_avl(
@@ -444,25 +451,23 @@ class Session:
         return self.run_avl(
             cmds=cmds,
             pre_fn=self._write_analysis_files,
-            post_fn=lambda d: listings.read_mass_properties(self.last_output),
+            post_fn=lambda d: MassProperties(
+                listings.read_mass_properties(self.last_output)
+            ),
         )
 
     def _get_avl_bin(self):
         # guard for avl not being present on the system.
         # this used to be check at config read, but this allows
         # dynamic setting of the configuration
-        if "avl_bin" not in self.config.settings:
-            raise FileNotFoundError(
-                "AVL not found or not executable," " check the configuration file"
-            )
-        avl_bin = self.config["avl_bin"]
+        avl_bin = self.config.avl_path
         # checked once per executable, before it's used for the first time
         check_avl_version(avl_bin)
         return avl_bin
 
     def _get_avl_process(self, working_dir):
         """Starts AVL for interactive use: commands are written to stdin"""
-        stdout = None if self.config["show_stdout"] else subprocess.DEVNULL
+        stdout = None if self.config.print_output else subprocess.DEVNULL
 
         # Buffer size = 0 required for direct stdin/stdout access
         return subprocess.Popen(
@@ -477,22 +482,23 @@ class Session:
         results = dict()
         states = self._read_states(target_dir)
         for case in self.cases:
-            results[case.number] = {"Name": case.name}
+            case_results = {"Name": case.name}
             for output, ext in self.requested_output.items():
-                if output == SURFACE_PRESSURES.name:
+                if output == Output.SURFACE_PRESSURES:
                     pressures = self._read_surface_pressures(target_dir, case)
-                    results[case.number][output] = pressures
+                    case_results[output.value] = pressures
                     continue
                 file_name = self._get_output_filename(case, ext)
                 file_path = os.path.join(target_dir, file_name)
                 reader = OutputReader(file_path, body_names=self._body_names)
-                results[case.number][output] = reader.get_content()
+                case_results[output.value] = reader.get_content()
             if self.survey_points:
                 file_name = self._get_output_filename(case, OFF_BODY_FLOW.extension)
                 reader = OutputReader(os.path.join(target_dir, file_name))
-                results[case.number][OFF_BODY_FLOW.name] = reader.get_content()
-            results[case.number]["States"] = states[case.number]
-        return results
+                case_results[OFF_BODY_FLOW.name] = reader.get_content()
+            case_results["States"] = states[case.number]
+            results[case.number] = CaseResults(case_results)
+        return Results(results)
 
     def _read_states(self, target_dir):
         """States of the cases as solved, e.g. alpha or the velocity of a
@@ -550,11 +556,25 @@ class Session:
         for number in numbers:
             sys_file = os.path.join(target_dir, self._sys_file(number))
             system_matrices[number] = OutputReader(sys_file).get_content()
-        return {
-            "EigenValues": {n: eigen_values.get(n, []) for n in numbers},
-            "EigenModes": {n: eigen_modes.get(n, []) for n in numbers},
-            "SystemMatrix": system_matrices,
-        }
+        results = {}
+        for number in numbers:
+            values = [complex(*value) for value in eigen_values.get(number, [])]
+            modes = []
+            listed = eigen_modes.get(number, [])
+            for idx, listed_mode in enumerate(listed):
+                mode = {key: complex(*value) for key, value in listed_mode.items()}
+                if len(listed) == len(values):
+                    # the eigenvalue file has more digits than the listing
+                    mode["eigenvalue"] = values[idx]
+                modes.append(EigenMode(mode))
+            results[number] = CaseModes(
+                {
+                    "EigenValues": values,
+                    "EigenModes": modes,
+                    "SystemMatrix": system_matrices[number],
+                }
+            )
+        return ModeResults(results)
 
     def show_geometry(self):
         with TemporaryDirectory(prefix="avl_") as working_dir:
@@ -576,12 +596,12 @@ class Session:
         gs_devices = {"pdf": "pdfwrite", "png": "pngalpha", "jpeg": "jpeg"}
         if file_format not in gs_devices:
             raise InputError(f"Invalid file format: {file_format}")
-        if "gs_bin" not in self.config.settings:
+        gs = self.config.ghostscript_path
+        if gs is None:
             raise FileNotFoundError(
-                "Ghostscript should be installed"
-                " and enabled in the configuration file"
+                f"Ghostscript ('{self.config.ghostscript_executable}') not "
+                "found, it's needed to save plots as pdf, png or jpeg"
             )
-        gs = self.config.settings["gs_bin"]
         cmd = [
             gs,
             "-dBATCH",

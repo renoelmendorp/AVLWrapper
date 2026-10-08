@@ -124,8 +124,7 @@ def test_eigen_values_indexed_like_cases():
     model = avl.Aircraft.from_file(AVL_FILE)
     cases = avl.Case.from_file(CASE_FILE)
     session = avl.Session(geometry=model, cases=cases)
-    eigen_values = session.run_mode_analysis()["EigenValues"]
-    assert set(eigen_values) == set(session.run_all_cases())
+    assert set(session.run_mode_analysis()) == set(session.run_all_cases())
 
 
 @pytest.mark.parametrize(
@@ -160,8 +159,7 @@ def fake_avl(tmp_path, version="3.52"):
 
 @pytest.mark.skipif(sys.platform == "win32", reason="needs a shell script")
 def test_avl_failure(tmp_path):
-    config = avl.Configuration()
-    config["avl_bin"] = fake_avl(tmp_path)
+    config = avl.Configuration(avl_executable=fake_avl(tmp_path))
     model = avl.Aircraft.from_file(AVL_FILE)
     session = avl.Session(geometry=model, cases=[avl.Case(name="case")], config=config)
     with pytest.raises(avl.AvlExecutionError, match="expected output"):

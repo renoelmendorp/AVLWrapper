@@ -120,28 +120,28 @@ def wing():
 @pytest.mark.avl
 def test_eigenmodes(b737_session):
     res = b737_session.run_mode_analysis()
-    assert set(res) == {"EigenValues", "EigenModes", "SystemMatrix"}
-    modes, values = res["EigenModes"][1], res["EigenValues"][1]
+    assert set(res) == {1}
+    assert set(res[1]) == {"EigenValues", "EigenModes", "SystemMatrix"}
+    modes, values = res[1].modes, res[1].eigenvalues
     assert len(modes) == len(values) > 0
-    for mode, value in zip(modes, values):
-        # the eigenvalues in the listing have 6 significant digits
-        assert mode["eigenvalue"] == pytest.approx(value, rel=1e-5, abs=1e-6)
-    assert set(res["SystemMatrix"]) == {1}
+    assert [mode.eigenvalue for mode in modes] == values
+    assert all(isinstance(value, complex) for value in values)
+    assert set(modes[0].vector) == set(listings.EIGENVECTOR_COMPONENTS)
+    assert res[1].system_matrix == res[1]["SystemMatrix"]
 
 
 @pytest.mark.avl
 def test_mode_analysis_per_case(supra_session):
     all_cases = supra_session.run_mode_analysis()
     numbers = [case.number for case in supra_session.cases]
-    assert set(all_cases["EigenValues"]) == set(numbers)
+    assert set(all_cases) == set(numbers)
 
     single = supra_session.run_mode_analysis(cases=[2])
-    for key in ("EigenValues", "EigenModes", "SystemMatrix"):
-        assert set(single[key]) == {2}
-    assert single["EigenValues"][2] == all_cases["EigenValues"][2]
-    for key, column in single["SystemMatrix"][2].items():
+    assert set(single) == {2}
+    assert single[2].eigenvalues == all_cases[2].eigenvalues
+    for key, column in single[2].system_matrix.items():
         # round-off differences between the runs
-        expected = all_cases["SystemMatrix"][2][key]
+        expected = all_cases[2].system_matrix[key]
         assert column == pytest.approx(expected, rel=1e-3, abs=1e-12)
 
     with pytest.raises(avl.InputError, match="99"):
@@ -223,7 +223,7 @@ def test_trim_in_mode_analysis(wing):
     )
     case = avl.Case(name="level", trim=avl.Trim.level_flight, velocity=20.0)
     session = avl.Session(wing, cases=[case], mass_dist=mass)
-    assert session.run_mode_analysis()["EigenValues"][1]
+    assert session.run_mode_analysis()[1].eigenvalues
 
 
 @pytest.mark.avl
@@ -272,10 +272,10 @@ def test_too_many_survey_points(wing):
 
 @pytest.mark.avl
 def test_surface_pressures(wing):
-    config = avl.Configuration()
-    config["output"]["surfacepressures"] = "yes"
+    options = avl.Options(outputs={avl.Output.TOTALS, avl.Output.SURFACE_PRESSURES})
     cases = [avl.Case(name="low", alpha=2.0), avl.Case(name="high", alpha=6.0)]
-    res = avl.Session(wing, cases=cases, config=config).run_all_cases()
+    res = avl.Session(wing, cases=cases, options=options).run_all_cases()
+    assert set(res[1]) == {"Name", "States", "Totals", "SurfacePressures"}
     low, high = (res[n]["SurfacePressures"] for n in (1, 2))
     assert set(low) == {"wing", "wing (YDUP)"}
     cp = low["wing"]["ElementCp"]

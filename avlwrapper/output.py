@@ -1,5 +1,6 @@
 import os.path
 import re
+from enum import StrEnum
 from typing import NamedTuple
 
 from avlwrapper import mrf
@@ -176,6 +177,30 @@ class EigenValuesFileReader(FileReader):
             else:
                 result[case_nr] = [eigen_val]
         return result
+
+
+class Output(StrEnum):
+    """Outputs of a case, the value is the name in the results"""
+
+    TOTALS = "Totals"
+    SURFACE_FORCES = "SurfaceForces"
+    BODY_FORCES = "BodyForces"
+    STRIP_FORCES = "StripForces"
+    STRIP_FORCES_BODY_AXES = "StripForcesBodyAxes"
+    ELEMENT_FORCES = "ElementForces"
+    STABILITY_DERIVATIVES = "StabilityDerivatives"
+    BODY_AXIS_DERIVATIVES = "BodyAxisDerivatives"
+    HINGE_MOMENTS = "HingeMoments"
+    STRIP_SHEAR_MOMENTS = "StripShearMoments"
+    # computed in a separate AVL run per case, and only for surfaces with
+    # airfoils over their full chord
+    SURFACE_PRESSURES = "SurfacePressures"
+
+    @classmethod
+    def defaults(cls):
+        """The outputs computed when none are selected: all but the surface
+        pressures"""
+        return frozenset(cls) - {cls.SURFACE_PRESSURES}
 
 
 class OutputType(NamedTuple):

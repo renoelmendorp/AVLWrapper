@@ -30,7 +30,7 @@ B737_SURFACES = [
 
 @pytest.fixture(scope="session")
 def manual_run():
-    avl_bin = avl.default_config["avl_bin"]
+    avl_bin = avl.default_config.avl_path
     run_file = "runfile"
     with TemporaryDirectory(prefix="avltest_") as working_dir:
         run_file_path = os.path.join(working_dir, run_file)
@@ -96,11 +96,7 @@ def test_mass_dist(mass_dist):
 def test_b737_session(model, run_case, mass_dist, manual_run):
     session = avl.Session(geometry=model, cases=[run_case], mass_dist=mass_dist)
     case_results = session.run_all_cases()[run_case.number]
-    mode_results = session.run_mode_analysis()
-    all_results = case_results | {
-        "EigenValues": mode_results["EigenValues"],
-        "SystemMatrix": mode_results["SystemMatrix"][run_case.number],
-    }
+    case_modes = session.run_mode_analysis()[run_case.number]
 
     def check_all_entries(result, reference):
         for key in result:
@@ -112,10 +108,10 @@ def test_b737_session(model, run_case, mass_dist, manual_run):
             else:
                 assert result[key] == pytest.approx(reference[key], 1e-6)
 
-    all_outputs = session.OUTPUTS | session.MODE_OUTPUTS
-    for res_key in all_results:
-        try:
-            man_key = all_outputs[res_key]
-        except KeyError:
-            continue
-        check_all_entries(all_results[res_key], manual_run[man_key])
+    extensions = {output.name: output.extension for output in avl.output.CASE_OUTPUTS}
+    for output, extension in extensions.items():
+        check_all_entries(case_results[output], manual_run[extension])
+
+    check_all_entries(case_modes.system_matrix, manual_run["sys"])
+    reference = [complex(*value) for value in manual_run["eig"][run_case.number]]
+    assert case_modes.eigenvalues == pytest.approx(reference, 1e-6)
